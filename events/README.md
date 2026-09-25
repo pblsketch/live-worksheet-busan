@@ -19,12 +19,12 @@ node tools/register-event.mjs <id> --dry-run   # 검사만 (DB에 접속하지 �
 - 형식이 틀리면 이유를 모두 출력하고 종료 코드 1로 끝난다. DB에는 아무것도 쓰지 않는다.
 - 통과하면 연수·비밀을 넣거나 갱신하고, 빠진 진행 설정만 `N`으로 만든다. **이미 있는 진행 설정 값은 덮어쓰지 않는다.** 연수 중에 다시 등록해도 열린 활동이 닫히지 않는다.
 - 비밀 파일에 `admin_passcode`가 없거나 비어 있으면 12자 암호를 새로 만들어 비밀 파일에 적고, 화면에 한 번 출력한다. 암호는 DB에 해시(pgcrypto `crypt`, bf)로만 저장된다.
-- 끝나면 참가자 주소 `https://pblsketch.github.io/live-worksheet/?e=<id>`와 현황판 주소 `…/board.html?e=<id>`를 출력한다.
+- 끝나면 참가자 주소 `https://pblsketch.github.io/live-worksheet-busan/?e=<id>`와 현황판 주소 `…/board.html?e=<id>`를 출력한다.
 - `--dry-run`에서 비밀 파일이 없으면 공개 설정만 검사하고 알린다. 실제 등록에는 비밀 파일이 필요하다(ox 활동이 있으면 정답이 있어야 한다).
 - 종료 코드: 0 성공 · 1 검사 실패 · 2 사용법 오류 · 3 DB 오류
 - `.env.local`의 `SUPABASE_PROJECT_REF`, `SUPABASE_ACCESS_TOKEN`으로 관리 API의 SQL 실행을 쓴다. 토큰은 출력하지 않는다.
 
-연수를 지우는 명령은 없다. 필요하면 DB에서 `delete from lw_events where id = '<id>'`로 지운다(비밀·참가자·응답·진행 설정이 함께 지워진다).
+연수를 지우는 명령은 없다. 필요하면 DB에서 `delete from lwb_events where id = '<id>'`로 지운다(비밀·참가자·응답·진행 설정이 함께 지워진다).
 
 ## 공개 설정 `events/<id>.json`
 
@@ -40,7 +40,7 @@ node tools/register-event.mjs <id> --dry-run   # 검사만 (DB에 접속하지 �
 | `activities` | 필수 | 활동 배열(1개 이상). **적힌 순서가 화면 순서다** |
 | `materials` | 선택 | 자료 배열 |
 
-`id`·`title`·`date`·`listed`는 DB의 `lw_events` 열로, 나머지(`description`, `activities`, `materials`)는 `lw_events.config`에 그대로 들어간다. 모르는 칸은 경고만 하고 그대로 저장한다.
+`id`·`title`·`date`·`listed`는 DB의 `lwb_events` 열로, 나머지(`description`, `activities`, `materials`)는 `lwb_events.config`에 그대로 들어간다. 모르는 칸은 경고만 하고 그대로 저장한다.
 
 ### 활동 공통 칸
 
@@ -146,7 +146,7 @@ node tools/register-event.mjs <id> --dry-run   # 검사만 (DB에 접속하지 �
 
 ## 응답 payload (서버 검사 규칙)
 
-서버 함수 `lw_submit`이 등록된 설정을 읽어 검사한다. 통과하면 정리한 payload를 저장한다(모르는 칸은 버리고, 글은 앞뒤 공백을 떼고 연속 공백을 하나로 줄인다).
+서버 함수 `lwb_submit`이 등록된 설정을 읽어 검사한다. 통과하면 정리한 payload를 저장한다(모르는 칸은 버리고, 글은 앞뒤 공백을 떼고 연속 공백을 하나로 줄인다).
 
 - `ox`: `{ "answers": ["O"|"X", …] }` — 길이 = 문항 수
 - `stage_check`:
@@ -160,7 +160,7 @@ node tools/register-event.mjs <id> --dry-run   # 검사만 (DB에 접속하지 �
 
 ## 완전한 예
 
-`events/sample.json`(저장소에 있는 개발용 샘플)이 세 종류를 모두 쓰는 완전한 예다. 짝이 되는 비밀 파일은 저장소에 없다(테스트가 실행할 때 만든다). 형식은 아래와 같다.
+`events/sample.json`(저장소에 있는 개발용 샘플)이 ox·stage_check·sentence 를 쓰는 완전한 예다. `rewrite`와 `placeholder`는 `events/busan1019.json`을 본다. 짝이 되는 비밀 파일은 저장소에 없다(테스트가 실행할 때 만든다). 형식은 아래와 같다.
 
 `events/sample.json`
 

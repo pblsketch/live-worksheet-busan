@@ -5,6 +5,11 @@
  * payload: { template: '<틀 id>', blank: '2~60자' }
  */
 import { esc, rich, len, oneLine } from '../core.js';
+import {
+  freshKeys, FRESH_MS, byFirst, paginate, clampPage, measureHeights, columnBox, pagerHTML
+} from '../paging.js';
+
+export { freshKeys, FRESH_MS };
 
 const MIN = 2;
 const MAX = 60;
@@ -196,12 +201,12 @@ function adminResponse(ctx, row) {
 
 /* ───────────── 현황판 ───────────── */
 
-/** 새 문장을 노란 테두리로 보이는 시간(밀리초) */
-export const FRESH_MS = 12000;
-
-/** 현황판 카드 목록(응답 순서 = 최근 제출 순). key 는 다시 내면 바뀐다 */
+/**
+ * 현황판 카드 목록: 처음 낸 순서(새 카드는 끝에 붙고, 다시 내도 자리가 그대로다).
+ * key 는 다시 내면 바뀐다(다시 낸 문장도 잠깐 강조한다)
+ */
 export function sentenceCards(activity, rows) {
-  return (rows || []).map((r) => {
+  return byFirst(rows).map((r) => {
     const p = (r && r.payload) || {};
     return {
       key: `${r.participant_id}|${r.updated_at || r.created_at || ''}`,
@@ -212,33 +217,32 @@ export function sentenceCards(activity, rows) {
   });
 }
 
-/**
- * 새로 들어온 카드 고르기. seen(Map: key → 처음 본 시각)을 고친다.
- * 처음 그릴 때(first) 이미 있던 카드는 새것으로 치지 않는다. 처음 본 뒤 ttl 동안 새것이다.
- * @returns {Set<string>} 지금 강조할 key
- */
-export function freshKeys(seen, keys, now, { first = false, ttl = FRESH_MS } = {}) {
-  for (const k of keys) if (!seen.has(k)) seen.set(k, first ? 0 : now);
-  const out = new Set();
-  for (const k of keys) {
-    const t = seen.get(k);
-    if (t > 0 && now - t < ttl) out.add(k);
-  }
-  return out;
-}
+const COLS = 3;
 
-/** 문장 카드 3열. 새 문장은 노란 테두리로 들어오고, 카드마다 틀 라벨과 이름을 붙인다 */
+/**
+ * 문장 카드 3열. 처음 낸 순서로 쌓고, 화면에 들어가는 만큼 한 쪽에 둔다(↓ ↑ · PageDown PageUp 로 넘긴다).
+ * 새 문장은 노란 테두리로 끝에 붙고, 카드마다 틀 라벨과 이름을 붙인다(이름은 보인다, 결정 11).
+ */
 function board(ctx) {
   const a = ctx.activity;
   const tpls = a.templates || [];
   const root = ctx.root;
   const keep = ctx.keep || {};
   if (!keep.seen) keep.seen = new Map();
+  if (typeof keep.page !== 'number') keep.page = 0;
   let cur = ctx;
   let timer = null;
-  let raf = 0;
+  let pages = [];
+  let alive = true;
 
   const nameOf = (pid) => (cur.names && cur.names.get(pid)) || '…';
+
+  function cardHTML(c, fresh) {
+    const lb = c.template && c.template.label ? `<span class="tag">${rich(c.template.label)}</span>` : '';
+    return `<div class="sncard${fresh ? ' fresh' : ''}" data-pid="${esc(c.pid)}">` +
+      `<div class="sh">${lb}<span class="nm">${esc(nameOf(c.pid))}</span></div>` +
+      `<div class="tx">${sentenceHTML(c.template, c.blank)}</div></div>`;
+  }
 
   function draw() {
     clearTimeout(timer);
@@ -253,45 +257,51 @@ function board(ctx) {
     keep.ready = true;
 
     if (!cards.length) {
+      pages = [];
       root.innerHTML = '<div class="blank"><h2>아직 문장이 없습니다</h2>' +
         `<p>${cur.isOpen ? '문장이 들어오면 여기에 한 장씩 쌓입니다.' : '관리자 화면에서 이 활동을 열어 주세요.'}</p></div>`;
       return;
     }
-    const cols = [[], [], []];
-    cards.forEach((c, i) => {
-      const lb = c.template && c.template.label ? `<span class="tag">${rich(c.template.label)}</span>` : '';
-      cols[i % 3].push(
-        `<div class="sncard${fresh.has(c.key) ? ' fresh' : ''}" data-pid="${esc(c.pid)}">` +
-        `<div class="sh">${lb}<span class="nm">${esc(nameOf(c.pid))}</span></div>` +
-        `<div class="tx">${sentenceHTML(c.template, c.blank)}</div></div>`);
-    });
     const counts = tpls.length > 1
       ? '<div class="sn-top">' + tpls.map((t) => {
         const n = cards.filter((c) => c.template && c.template.id === t.id).length;
         return `<span class="sn-t"><span class="tag">${rich(t.label || t.id)}</span><b>${n}</b></span>`;
-      }).join('') + '<span class="sn-more" hidden></span></div>'
-      : '<div class="sn-top solo"><span class="sn-more" hidden></span></div>';
+      }).join('') + '<span class="sn-pg"></span></div>'
+      : '<div class="sn-top solo"><span class="sn-pg"></span></div>';
     root.innerHTML = `<div class="sn">${counts}<div class="sn-cols">` +
-      cols.map((c) => `<div class="sn-col">${c.join('')}</div>`).join('') + '</div></div>';
+      Array.from({ length: COLS }, () => '<div class="sn-col"></div>').join('') + '</div></div>';
 
-    // 칸에 다 들어가지 않는 오래된 카드는 반쯤 잘려 보이지 않게 숨기고 수만 알린다
-    cancelAnimationFrame(raf);
-    raf = requestAnimationFrame(() => {
-      let hidden = 0;
-      root.querySelectorAll('.sn-col').forEach((col) => {
-        const limit = col.clientHeight + 1;
-        col.querySelectorAll('.sncard').forEach((card) => {
-          if (card.offsetTop + card.offsetHeight > limit) { card.classList.add('cut'); hidden++; }
-        });
-      });
-      const more = root.querySelector('.sn-more');
-      if (more) {
-        more.hidden = hidden === 0;
-        more.textContent = hidden ? `화면 밖 ${hidden}개` : '';
-      }
-    });
+    // 실제 칸 크기로 카드 높이를 재서 한 쪽에 들어가는 만큼 둔다(잘린 카드가 보이지 않게)
+    const colEls = [...root.querySelectorAll('.sn-col')];
+    const box = columnBox(colEls[0]);
+    const htmls = cards.map((c) => cardHTML(c, fresh.has(c.key)));
+    const heights = measureHeights(root.querySelector('.sn'), htmls, box.width, 'sn-col sn-measure');
+    pages = paginate(heights, { cols: COLS, height: box.height, gap: box.gap });
+    keep.page = clampPage(keep.page, pages.length);
+    pages[keep.page].forEach((idxs, c) => { colEls[c].innerHTML = idxs.map((i) => htmls[i]).join(''); });
+
+    const later = cards.filter((c, i) => fresh.has(c.key) && !pages[keep.page].some((col) => col.includes(i))).length;
+    root.querySelector('.sn-pg').innerHTML = pagerHTML(keep.page, pages.length, cards.length) +
+      (later ? `<span class="pg-new">다른 쪽에 새 문장 ${later}</span>` : '');
 
     if (fresh.size) timer = setTimeout(draw, FRESH_MS + 200); // 강조가 저절로 걷히게 한 번 더 그린다
+  }
+
+  function turn(d) {
+    const next = clampPage(keep.page + d, pages.length);
+    if (next === keep.page) return;
+    keep.page = next;
+    draw();
+  }
+
+  const onClick = (e) => {
+    const t = e.target.closest('[data-turn]');
+    if (t) turn(Number(t.dataset.turn));
+  };
+  root.addEventListener('click', onClick);
+  // 글꼴을 다 받으면 카드 높이가 바뀌므로 다시 잰다
+  if (typeof document !== 'undefined' && document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(() => { if (alive) draw(); });
   }
 
   draw();
@@ -301,9 +311,15 @@ function board(ctx) {
       cur = next;
       draw();
     },
+    onKey(k) {
+      if (k === 'PageDown' || k === 'ArrowDown') { turn(1); return true; }
+      if (k === 'PageUp' || k === 'ArrowUp') { turn(-1); return true; }
+      return false;
+    },
     destroy() {
+      alive = false;
       clearTimeout(timer);
-      cancelAnimationFrame(raf);
+      root.removeEventListener('click', onClick);
     }
   };
 }
@@ -311,6 +327,7 @@ function board(ctx) {
 export default {
   type: 'sentence',
   typeLabel: '문장',
+  boardKeys: '↑ ↓ 쪽',
   summary,
   participant,
   adminCard,

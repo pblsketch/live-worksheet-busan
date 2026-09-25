@@ -88,17 +88,22 @@ describe('sentence 현황판', () => {
     ]
   };
 
-  it('카드 목록: 응답 순서, 다시 내면 key 가 바뀐다', () => {
+  it('카드 목록: 처음 낸 순서(새 카드는 끝에 붙는다), 다시 내면 key 만 바뀌고 자리는 그대로', () => {
+    // 응답은 최근 제출 순으로 온다
     const rows = [
-      { participant_id: 'a', payload: { template: 'teacher', blank: '둘' }, updated_at: 't2' },
-      { participant_id: 'b', payload: { template: 'nope', blank: '하나' }, updated_at: 't1' }
+      { participant_id: 'b', payload: { template: 'nope', blank: '하나' }, created_at: '2026-10-19T10:00:02Z', updated_at: '2026-10-19T10:00:02Z' },
+      { participant_id: 'a', payload: { template: 'teacher', blank: '둘' }, created_at: '2026-10-19T10:00:01Z', updated_at: '2026-10-19T10:00:01Z' }
     ];
     const cards = sentenceCards(ACT, rows);
-    assert.deepEqual(cards.map((c) => c.key), ['a|t2', 'b|t1']);
+    assert.deepEqual(cards.map((c) => c.pid), ['a', 'b']);
+    assert.deepEqual(cards.map((c) => c.key), ['a|2026-10-19T10:00:01Z', 'b|2026-10-19T10:00:02Z']);
     assert.equal(cards[0].template.id, 'teacher');
     assert.equal(cards[1].template, null);
-    const again = sentenceCards(ACT, [{ ...rows[0], updated_at: 't3' }]);
+    // a 가 다시 냄: 맨 앞에 오는 응답이지만 카드 자리는 그대로, key 는 바뀐다
+    const again = sentenceCards(ACT, [{ ...rows[1], updated_at: '2026-10-19T10:05:00Z' }, rows[0]]);
+    assert.deepEqual(again.map((c) => c.pid), ['a', 'b']);
     assert.notEqual(again[0].key, cards[0].key);
+    assert.equal(again[1].key, cards[1].key);
   });
 
   it('문장 HTML: 설정 문구는 <b>만 살리고, 참가자 글은 이스케이프한다', () => {

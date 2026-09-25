@@ -6,6 +6,16 @@
  * 순수 함수(paginate · pageOf · freshKeys)는 tests/unit 에서 검사한다.
  */
 
+const at = (r) => Date.parse((r && r.created_at) || '') || 0;
+
+/** 응답을 처음 낸 순서로(다시 내도 자리가 그대로다. 새 카드는 끝에 붙는다) */
+export function byFirst(rows) {
+  return (rows || []).slice().sort((x, y) =>
+    (at(x) - at(y)) ||
+    String(x.created_at || '').localeCompare(String(y.created_at || '')) ||
+    String(x.participant_id).localeCompare(String(y.participant_id)));
+}
+
 /** 새 카드를 노란 테두리로 보이는 시간(밀리초) */
 export const FRESH_MS = 12000;
 

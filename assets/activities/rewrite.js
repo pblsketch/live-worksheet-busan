@@ -11,8 +11,10 @@
  */
 import { esc, rich, len, oneLine } from '../core.js';
 import {
-  freshKeys, FRESH_MS, paginate, clampPage, measureHeights, columnBox, pagerHTML
+  freshKeys, FRESH_MS, paginate, clampPage, measureHeights, columnBox, pagerHTML, byFirst
 } from '../paging.js';
+
+export { byFirst };
 
 export const MIN = 5;
 export const MAX_DEFAULT = 200;
@@ -60,16 +62,6 @@ export function pairOf(event, activity) {
   const i = acts.findIndex((x) => x.id === activity.id);
   for (let k = i - 1; k >= 0; k--) if (isFirst(acts[k])) return acts[k];
   return null;
-}
-
-const at = (r) => Date.parse((r && r.created_at) || '') || 0;
-
-/** 처음 낸 순서(다시 내도 자리가 그대로다. 새 카드는 끝에 붙는다) */
-export function byFirst(rows) {
-  return (rows || []).slice().sort((x, y) =>
-    (at(x) - at(y)) ||
-    String(x.created_at || '').localeCompare(String(y.created_at || '')) ||
-    String(x.participant_id).localeCompare(String(y.participant_id)));
 }
 
 /**

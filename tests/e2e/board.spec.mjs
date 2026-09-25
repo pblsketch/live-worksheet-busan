@@ -7,7 +7,7 @@
  *   - stage_check: ↓ 로 보기를 바꾸면 그 학습목표의 수로 바뀌고, 직접 적은 목표 묶음에 적은 문장이 보인다
  *   - 판단 갈림: 일부러 갈라 놓은 항목에만 붙고, 몰린 항목에는 붙지 않는다(보기마다 따로 계산)
  *   - ox: 공개 전에는 정답·점수·패널이 어디에도 없고, reveal 을 Y 로 켜면 정답 테두리와 패널 성적표가 나온다
- *   - sentence: 새로 낸 문장이 새로고침 없이 노란 테두리로 들어온다
+ *   - sentence: 처음 낸 순서로 쌓이고, 새로 낸 문장이 새로고침 없이 노란 테두리로 끝에 붙는다(쪽 표시)
  * 시험 연수는 실패해도 afterAll 에서 지운다.
  */
 import { test, expect } from '@playwright/test';
@@ -280,20 +280,21 @@ test('ox: 공개 전에는 정답·점수·패널이 없고, reveal 을 켜면 �
   expect(errors).toEqual([]);
 });
 
-test('sentence: 3열 카드, 틀 라벨과 이름, 새 문장은 새로고침 없이 노란 테두리로 들어온다', async ({ page }) => {
+test('sentence: 3열 카드, 틀 라벨과 이름, 새 문장은 새로고침 없이 노란 테두리로 끝에 붙는다', async ({ page }) => {
   const errors = await openBoard(page, '&v=3');
   let loads = 0;
   page.on('load', () => { loads++; });
 
   await expect(page.locator('.sn-col')).toHaveCount(3);
   await expect(page.locator('.sncard')).toHaveCount(2);
-  // 최근 제출이 먼저(첫 칸 맨 위)
+  // 처음 낸 것이 먼저(첫 칸 맨 위), 다음 카드는 가장 짧은 칸(둘째 칸)으로
   const first = page.locator('.sn-col').nth(0).locator('.sncard').first();
-  await expect(first.locator('.nm')).toHaveText(NAMES.p2);
-  await expect(first.locator('.tag')).toHaveText('교사 쪽');
-  await expect(first.locator('.tx b')).toHaveText('시험 문장 둘');
-  await expect(page.locator('.sncard', { hasText: '시험 문장 하나' }).locator('.nm')).toHaveText(NAMES.p1);
-  await expect(page.locator('.sncard', { hasText: '시험 문장 하나' }).locator('.tag')).toHaveText('학생 쪽');
+  await expect(first.locator('.nm')).toHaveText(NAMES.p1);
+  await expect(first.locator('.tag')).toHaveText('학생 쪽');
+  await expect(first.locator('.tx b')).toHaveText('시험 문장 하나');
+  await expect(page.locator('.sn-col').nth(1).locator('.sncard .nm')).toHaveText(NAMES.p2);
+  await expect(page.locator('.sncard', { hasText: '시험 문장 둘' }).locator('.tag')).toHaveText('교사 쪽');
+  await expect(page.locator('.sn-pg .pg')).toHaveText('2장');
   // 처음 열 때 있던 문장은 강조하지 않는다
   await expect(page.locator('.sncard.fresh')).toHaveCount(0);
   await expect(page.locator('.sn-t')).toHaveText(['학생 쪽1', '교사 쪽1']);
@@ -306,7 +307,8 @@ test('sentence: 3열 카드, 틀 라벨과 이름, 새 문장은 새로고침 �
   await expect(fresh.locator('.tx b')).toHaveText('시험 새 문장');
   await expect(fresh.locator('.nm')).toHaveText(NAMES.p3);
   await expect(page.locator('.sncard')).toHaveCount(3);
-  await expect(page.locator('.sn-col').nth(0).locator('.sncard').first()).toHaveClass(/\bfresh\b/);
+  await expect(page.locator('.sn-col').nth(2).locator('.sncard').first()).toHaveClass(/\bfresh\b/);
+  await expect(page.locator('.sn-pg .pg')).toHaveText('3장');
   await expect(page.locator('#barCount b')).toHaveText('3');
   expect(await page.evaluate(() => window.__lwSamePage)).toBe(true);
   expect(loads).toBe(0);

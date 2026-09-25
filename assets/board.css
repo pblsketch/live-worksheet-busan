@@ -235,15 +235,15 @@ b{font-weight:700}
 .sn-top.solo{margin-bottom:0;min-height:0}
 .sn-t{display:inline-flex;align-items:center;gap:1rem}
 .sn-t b{font-size:3rem}
-.sn-more{margin-left:auto;font-size:2.2rem;color:var(--ink-soft);background:var(--paper2);padding:.4rem 1.4rem;border-radius:2rem}
-.sn-top.solo .sn-more{position:absolute;right:3.6rem;bottom:8rem;z-index:2}
+.sn-pg{margin-left:auto;display:inline-flex;align-items:center;gap:1.2rem}
+.sn-top.solo{justify-content:flex-end}
 .sn-cols{flex:1;min-height:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2.4rem}
-.sn-col{position:relative;min-height:0;overflow:hidden;display:flex;flex-direction:column;gap:1.6rem}
+.sn-col,.sn-measure{min-height:0;display:flex;flex-direction:column;gap:1.6rem}
+.sn-col{position:relative;overflow:hidden}
 .sncard{
   flex:none;background:var(--card);border:1px solid var(--line);border-radius:1.6rem;
   padding:1.5rem 2.2rem 1.6rem;box-shadow:var(--shadow-sm);
 }
-.sncard.cut{visibility:hidden}
 .sncard.fresh{
   background:var(--fresh);border-color:var(--amber);box-shadow:inset 0 0 0 .5rem var(--amber);
   animation:drop .6s cubic-bezier(.2,.9,.3,1);

@@ -162,6 +162,9 @@ function checkSentence(a, p, errors) {
     for (const k of ['label', 'before', 'after']) {
       if (t[k] !== undefined && !isStr(t[k])) errors.push(`${p}.templates[${i}].${k}: 문자열이어야 합니다.`);
     }
+    if (t.placeholder !== undefined && !(isStr(t.placeholder) && len(t.placeholder) <= 60)) {
+      errors.push(`${p}.templates[${i}].placeholder: 60자 이내 문자열이어야 합니다(글상자 안내 문구).`);
+    }
     if (a.templates.length > 1 && !nonEmpty(t.label)) {
       errors.push(`${p}.templates[${i}].label: 틀이 둘 이상이면 라벨이 필요합니다.`);
     }

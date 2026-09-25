@@ -77,7 +77,7 @@ node tools/register-event.mjs <id> --dry-run   # 검사만 (DB에 접속하지 �
 
 | 칸 | 필수 | 형식 |
 |---|---|---|
-| `templates` | 필수 | `[{ "id", "label", "before", "after" }]` 1개 이상. 틀이 둘 이상이면 `label` 필수. `before`(앞말)와 `after`(뒷말) 중 하나는 있어야 한다 |
+| `templates` | 필수 | `[{ "id", "label", "before", "after", "placeholder" }]` 1개 이상. 틀이 둘 이상이면 `label` 필수. `before`(앞말)와 `after`(뒷말) 중 하나는 있어야 한다. `placeholder`(선택, 60자 이내)는 글상자 안내 문구(예: `"예: 스스로 질문하는"`), 없으면 "빈칸에 들어갈 말" |
 
 ### `rewrite` (수행 특성 문장 고쳐 쓰기)
 

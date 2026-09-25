@@ -1,7 +1,8 @@
 /**
  * 활동 부품: sentence (문장 틀을 고르고 빈칸을 채운다)
  *
- * 공개 설정: templates[{ id, label, before, after }] — 틀이 둘 이상이면 참가자가 하나를 고른다
+ * 공개 설정: templates[{ id, label, before, after, placeholder? }] — 틀이 둘 이상이면 참가자가 하나를 고른다.
+ *           placeholder 는 글상자 안내 문구(60자 이내, 없으면 '빈칸에 들어갈 말')
  * payload: { template: '<틀 id>', blank: '2~60자' }
  */
 import { esc, rich, len, oneLine } from '../core.js';
@@ -16,6 +17,13 @@ const MAX = 60;
 
 export function templateOf(activity, id) {
   return (activity.templates || []).find((t) => t.id === id) || null;
+}
+
+export const DEFAULT_PLACEHOLDER = '빈칸에 들어갈 말';
+
+/** 글상자 안내 문구: 고른 틀의 placeholder, 없으면 기본 문구 */
+export function placeholderOf(tpl) {
+  return tpl && typeof tpl.placeholder === 'string' && tpl.placeholder.trim() ? tpl.placeholder : DEFAULT_PLACEHOLDER;
 }
 
 /** 틀 + 빈칸 → 문장 HTML (빈칸은 <b>로 감싼다. 참가자 글은 이스케이프) */
@@ -71,7 +79,7 @@ function participant(ctx) {
         : '') +
       `<div id="pv">${previewHTML()}</div>` +
       '<div class="field">' +
-      `<textarea id="blank" rows="2" maxlength="${MAX}" placeholder="빈칸에 들어갈 말"${form.template ? '' : ' disabled'}>${esc(form.blank)}</textarea>` +
+      `<textarea id="blank" rows="2" maxlength="${MAX}" placeholder="${esc(placeholderOf(templateOf(a, form.template)))}"${form.template ? '' : ' disabled'}>${esc(form.blank)}</textarea>` +
       `<div class="hint">앞뒤 말과 이어지게 적어 주세요. ${MIN}~${MAX}자</div>` +
       '</div>' +
       `<div class="sticky-b"><button class="btn" data-act="submit">${cur.mine ? '고쳐서 다시 내기' : '제출하기'}</button></div>`;
@@ -93,6 +101,7 @@ function participant(ctx) {
           l.classList.toggle('off', !on);   // 고르지 않은 쪽은 흐리게: 한 문장만 낸다는 것이 보이게
         });
         ta.disabled = false;
+        ta.placeholder = placeholderOf(templateOf(a, form.template));
         save();
         root.querySelector('#pv').innerHTML = previewHTML();
         ta.focus();

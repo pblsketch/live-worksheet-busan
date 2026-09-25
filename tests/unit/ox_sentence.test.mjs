@@ -121,3 +121,26 @@ describe('sentence 현황판', () => {
     assert.deepEqual([...freshKeys(seen, ['k1b', 'k3', 'k2'], 50000)], ['k1b']);
   });
 });
+
+describe('sentence 글상자 안내 문구 (placeholder)', () => {
+  it('틀의 placeholder, 없거나 비어 있으면 기본 문구', async () => {
+    const { placeholderOf, DEFAULT_PLACEHOLDER } = await import('../../assets/activities/sentence.js');
+    assert.equal(placeholderOf({ placeholder: '예: 스스로 질문하는' }), '예: 스스로 질문하는');
+    assert.equal(placeholderOf({ placeholder: '  ' }), DEFAULT_PLACEHOLDER);
+    assert.equal(placeholderOf({}), DEFAULT_PLACEHOLDER);
+    assert.equal(placeholderOf(null), '빈칸에 들어갈 말');
+  });
+
+  it('형식 검사: 60자 이내 문자열', async () => {
+    const { validatePublic } = await import('../../tools/lib/event-config.mjs');
+    const pub = (ph) => ({
+      title: '시험', date: '2026-10-19',
+      activities: [{ id: 'grow', type: 'sentence', title: '문장', templates: [{ id: 't', before: '나는', after: '', placeholder: ph }] }]
+    });
+    assert.deepEqual(validatePublic('x-sn', pub('예: 스스로 질문하는')).errors, []);
+    assert.deepEqual(validatePublic('x-sn', pub('가'.repeat(60))).errors, []);
+    assert.ok(validatePublic('x-sn', pub('가'.repeat(61))).errors.some((e) => /placeholder: 60자 이내/.test(e)));
+    assert.ok(validatePublic('x-sn', pub(3)).errors.some((e) => /placeholder/.test(e)));
+    assert.deepEqual(validatePublic('x-sn', pub(undefined)).errors, []);
+  });
+});

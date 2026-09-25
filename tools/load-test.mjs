@@ -287,6 +287,6 @@ async function main() {
 
 // 명령으로 돌렸을 때만 시작한다(단위 검사는 계산 도우미만 불러 쓴다)
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  main().then((code) => { process.exitCode = code; }, (e) => { console.error(e.message || e); process.exitCode = 1; })
+  main().then((code) => { process.exitCode = code; }, (e) => { console.error(e.message || e, e && e.cause ? `(${e.cause.code || e.cause.message})` : ''); process.exitCode = 1; })
     .finally(() => setTimeout(() => process.exit(process.exitCode || 0), 200).unref());
 }

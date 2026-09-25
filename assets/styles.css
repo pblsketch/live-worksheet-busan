@@ -344,6 +344,53 @@ details.crit[open] summary{margin-bottom:10px}
 .stream-item.mine{border-color:var(--blue);background:var(--card-blue)}
 .tag{display:inline-block;font-size:10.5px;font-weight:700;color:var(--blue);background:var(--card-blue);border:1px solid rgba(53,80,124,.22);border-radius:10px;padding:0 7px;font-family:Pretendard,sans-serif}
 
+/* ── 고쳐 쓰기(rewrite) ──
+   Zoom 옆 좁은 창(360~520px)과 휴대폰에서는 한 줄로 쌓고, 넓은 창에서는 점검 질문을 글상자 옆에 둔다 */
+.rw-picks{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
+.rw-pick{
+  display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:13px 15px 13px 42px;position:relative;cursor:pointer;
+  background:var(--card);border:1.5px solid var(--line);border-radius:12px;
+}
+.rw-pick input{position:absolute;left:15px;top:16px;margin:0;accent-color:var(--blue);width:17px;height:17px}
+.rw-pick:hover{border-color:var(--blue)}
+.rw-qt{font-family:'Noto Serif KR',serif;font-size:15.5px;line-height:1.7}
+.rw-q{display:flex;flex-direction:column;align-items:flex-start;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px 15px;margin-bottom:14px}
+.rw-q.on{border:1.5px solid var(--blue);background:var(--card-blue)}
+.rw-repick{margin:2px 0 0}
+.rw-ref{background:var(--paper2);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;margin-bottom:16px}
+.rw-ref .rw-q{margin-bottom:12px}
+.rw-ref-h{font-size:11.5px;font-weight:700;letter-spacing:.06em;color:var(--ink-soft);margin-bottom:6px}
+.rw-first{font-family:'Noto Serif KR',serif;font-size:15.5px;line-height:1.75;background:#fff;border:1px dashed var(--line);border-radius:10px;padding:11px 13px}
+.hint.rw-note{margin:0 0 12px;font-weight:600;color:var(--ink)}
+.rw-work{display:flex;flex-direction:column;gap:14px}
+.rw-write .step{margin-top:0}
+.rw-write textarea{min-height:140px}
+.rw-count{font-size:12.5px;color:var(--ink-soft);margin-top:6px;text-align:right}
+.rw-count b{color:var(--ink)}
+.rw-count .over,.rw-count .over b{color:var(--red)}
+.rw-checks{background:var(--card-blue);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;margin-bottom:6px}
+.rw-checks-h{font-size:12.5px;font-weight:700;letter-spacing:.06em;color:var(--blue);margin-bottom:9px}
+.rw-checks ol{margin:0;padding:0;list-style:none;counter-reset:c}
+.rw-checks li{position:relative;padding-left:25px;margin-bottom:9px;font-size:13.5px;line-height:1.6}
+.rw-checks li:last-child{margin-bottom:0}
+.rw-checks li::before{counter-increment:c;content:counter(c);position:absolute;left:0;top:2px;
+  width:18px;height:18px;border-radius:50%;background:var(--blue);color:#fff;
+  font-size:11px;font-weight:700;display:grid;place-items:center}
+@media (min-width:900px){
+  #app:has(.rw-wide){max-width:980px}
+  .rw-work.rw-wide{display:grid;grid-template-columns:minmax(0,1fr) 300px;align-items:start;gap:22px}
+  .rw-work.rw-wide .rw-checks{position:sticky;top:84px}
+}
+.rw-done .rw-q{margin-bottom:12px}
+.rw-mine{font-family:'Noto Serif KR',serif;font-size:16px;line-height:1.8}
+.rw-cmp{display:flex;flex-direction:column;gap:10px}
+.rw-cmp .c1,.rw-cmp .c2{font-family:'Noto Serif KR',serif;font-size:15px;line-height:1.8;border-radius:10px;padding:10px 12px}
+.rw-cmp .c1{background:var(--paper2);color:var(--ink-soft)}
+.rw-cmp .c2{background:#fff;border:1px solid var(--line)}
+.rw-cmp .lb{display:block;font-family:Pretendard,sans-serif;font-size:11px;font-weight:700;color:var(--ink-soft);margin-bottom:2px}
+mark{background:linear-gradient(transparent 42%, #f5e3a4 42%);color:inherit;padding:0 1px;border-radius:2px}
+.gcard .rw-recent{margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)}
+
 /* ── 자료 ── */
 .lock{text-align:center;padding:48px 12px}
 .lock .ic{font-size:44px;margin-bottom:18px;opacity:.4}

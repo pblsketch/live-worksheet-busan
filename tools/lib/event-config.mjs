@@ -14,15 +14,20 @@ export const PASSCODE_RE = /^[A-Za-z0-9]{8,16}$/;
 export const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** 활동 종류 등록부(서버 검사 쪽 목록과 같아야 한다: lwb_validate_payload) */
-export const ACTIVITY_TYPES = ['ox', 'stage_check', 'sentence'];
+export const ACTIVITY_TYPES = ['ox', 'stage_check', 'sentence', 'rewrite'];
 
 const TOP_KEYS = ['id', 'title', 'date', 'listed', 'description', 'activities', 'materials'];
 const COMMON_ACTIVITY_KEYS = ['id', 'type', 'title', 'description'];
 const TYPE_KEYS = {
   ox: ['questions', 'choices'],
   stage_check: ['items', 'objectives', 'allowCustom', 'criteria', 'example', 'stages'],
-  sentence: ['templates']
+  sentence: ['templates'],
+  rewrite: ['round', 'pairOf', 'level', 'prompts', 'checks', 'maxLength']
 };
+
+/** rewrite 글자 수: 최소 5자, maxLength 기본 200 · 최대 300 */
+export const REWRITE_MIN = 5;
+export const REWRITE_MAX_LIMIT = 300;
 /** 공개 파일에 들어가면 안 되는 비밀 칸(OX 정답 등) */
 const SECRET_LIKE_KEYS = ['answers', 'answer', 'labels', 'notes', 'panel', 'admin_passcode', 'passcode', 'reveal'];
 
@@ -166,7 +171,54 @@ function checkSentence(a, p, errors) {
   });
 }
 
-const TYPE_CHECK = { ox: checkOx, stage_check: checkStageCheck, sentence: checkSentence };
+/** rewrite 가 1차(round 1, 없으면 1)인가 */
+const firstRound = (a) => isObj(a) && a.type === 'rewrite' && (a.round === undefined || a.round === 1);
+
+function checkRewrite(a, p, errors, { warnings, pub }) {
+  if (a.round !== undefined && a.round !== 1 && a.round !== 2) errors.push(`${p}.round: 1 또는 2 여야 합니다(없으면 1).`);
+  if (a.level !== undefined && !(isStr(a.level) && len(a.level) <= 20)) errors.push(`${p}.level: 20자 이내 문자열이어야 합니다.`);
+  if (a.maxLength !== undefined &&
+      !(Number.isInteger(a.maxLength) && a.maxLength >= REWRITE_MIN && a.maxLength <= REWRITE_MAX_LIMIT)) {
+    errors.push(`${p}.maxLength: ${REWRITE_MIN}~${REWRITE_MAX_LIMIT} 사이의 정수여야 합니다(없으면 200).`);
+  }
+  if (!Array.isArray(a.prompts) || a.prompts.length === 0) {
+    errors.push(`${p}.prompts: 고쳐 쓸 문장 목록(1개 이상)이 필요합니다.`);
+  } else {
+    uniqueIds(a.prompts, `${p}.prompts`, PART_ID_RE, errors);
+    a.prompts.forEach((x, i) => {
+      if (!isObj(x)) return errors.push(`${p}.prompts[${i}]: 객체여야 합니다.`);
+      if (!nonEmpty(x.text)) errors.push(`${p}.prompts[${i}].text: 문장이 필요합니다.`);
+    });
+    if (a.prompts.length > 9) warnings.push(`${p}.prompts: 현황판 숫자 키(1~9)로는 앞의 9개만 고를 수 있습니다.`);
+  }
+  if (a.checks !== undefined && (!Array.isArray(a.checks) || !a.checks.every(nonEmpty))) {
+    errors.push(`${p}.checks: 비어 있지 않은 문자열 배열이어야 합니다.`);
+  }
+
+  // 짝: 2차는 같은 연수의 1차 rewrite 와 짝짓는다
+  const acts = Array.isArray(pub.activities) ? pub.activities : [];
+  if (a.pairOf !== undefined) {
+    if (a.round !== 2) errors.push(`${p}.pairOf: 2차(round 2) 활동에만 둘 수 있습니다.`);
+    const q = acts.find((x) => isObj(x) && x.id === a.pairOf);
+    if (!isStr(a.pairOf) || !q || q === a) errors.push(`${p}.pairOf: 같은 연수에 있는 다른 활동 id 여야 합니다.`);
+    else if (!firstRound(q)) errors.push(`${p}.pairOf: "${a.pairOf}" 는 1차(round 1) rewrite 활동이 아닙니다.`);
+    else if (Array.isArray(q.prompts) && Array.isArray(a.prompts)) {
+      const ids = (xs) => xs.filter(isObj).map((x) => x.id).sort().join(',');
+      if (ids(q.prompts) !== ids(a.prompts)) {
+        errors.push(`${p}.prompts: 짝 활동 "${a.pairOf}" 와 문장 id 가 같아야 합니다(1차에서 고른 문장을 2차에서 고쳐 쓴다).`);
+      } else if (a.prompts.some((x) => isObj(x) && !q.prompts.some((y) => isObj(y) && y.id === x.id && y.text === x.text))) {
+        warnings.push(`${p}.prompts: 짝 활동 "${a.pairOf}" 와 문장 글이 다릅니다.`);
+      }
+    }
+  } else if (a.round === 2) {
+    const i = acts.indexOf(a);
+    const prev = acts.slice(0, Math.max(0, i)).reverse().find(firstRound);
+    if (prev) warnings.push(`${p}.pairOf: 없어서 앞쪽의 1차 활동 "${prev.id}" 와 짝짓습니다.`);
+    else errors.push(`${p}.pairOf: 2차 활동은 짝이 되는 1차 활동 id(pairOf)가 필요합니다.`);
+  }
+}
+
+const TYPE_CHECK = { ox: checkOx, stage_check: checkStageCheck, sentence: checkSentence, rewrite: checkRewrite };
 
 /**
  * 공개 설정 검사.
@@ -209,7 +261,7 @@ export function validatePublic(id, pub) {
           warnings.push(`${p}: 알 수 없는 칸 "${k}" (그대로 저장됩니다)`);
         }
       }
-      TYPE_CHECK[a.type](a, p, errors);
+      TYPE_CHECK[a.type](a, p, errors, { warnings, pub });
     });
   }
 

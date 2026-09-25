@@ -19,23 +19,29 @@
  *   adminCard(ctx)  관리자 활동 카드에 붙는 한 줄 HTML(없으면 '')
  *   adminResponse(ctx, row)  '지금 들어온 응답'에 보일 원문 HTML
  *   adminCell(ctx, row)      참가자 표 칸(제출했을 때). 기본 '✓'
- *                   관리자 ctx: { event, activity, index, isOpen, reveal, rows, names }
- *   board(ctx) → { update(ctx), destroy(), onKey?(key) → boolean }
+ *                   관리자 ctx: { event, activity, index, isOpen, reveal, rows, rowsOf(id), names }
+ *   board(ctx) → { update(ctx), destroy(), onKey?(key, event) → boolean }
  *                   현황판 화면(board.html). ctx.root 안에 그린다. 데이터가 바뀌면 update(ctx)가 불린다.
- *                   onKey 는 ← → F 말고 남은 키('ArrowUp'·'ArrowDown')를 받는다. 쓰면 true 를 돌려준다.
- *                   ctx: { root, event, activity, index, isOpen, reveal, rows, names, participants, keep }
- *                     rows  이 활동의 응답(최근 제출 순). 불러오는 중이면 null
- *                     keep  화면을 넘겼다 돌아와도 남는 부품별 기억(보고 있던 보기 등)
+ *                   onKey 는 현황판 틀보다 먼저 키를 받는다(쪽 넘기기·보기 바꾸기 등). 쓰면 true 를 돌려주고,
+ *                   false 면 틀이 처리한다(← → PageUp PageDown 화면 넘기기, F 전체화면).
+ *                   한글 입력 상태에서도 되게 글자 키는 event.code('KeyN' 등)로도 본다.
+ *                   ctx: { root, event, activity, index, isOpen, reveal, rows, rowsOf(id), names, participants, keep }
+ *                     rows    이 활동의 응답(최근 제출 순). 불러오는 중이면 null
+ *                     rowsOf  다른 활동의 응답(짝 활동 나란히 보기 등)
+ *                     keep    화면을 넘겼다 돌아와도 남는 부품별 기억(보고 있던 보기 등)
+ *   boardKeys       현황판 아래 막대에 보일 이 화면의 키 안내(선택, 예: '↑ ↓ 쪽')
  *                   정답·점수는 reveal 이 있을 때(공개된 뒤)만 그린다.
  */
 import ox from './ox.js';
 import stageCheck from './stage_check.js';
 import sentence from './sentence.js';
+import rewrite from './rewrite.js';
 
 export const ACTIVITY_MODULES = {
   ox,
   stage_check: stageCheck,
-  sentence
+  sentence,
+  rewrite
 };
 
 /** 종류 이름 → 부품 (모르는 종류면 null) */

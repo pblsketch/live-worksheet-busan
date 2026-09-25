@@ -582,6 +582,7 @@ function adminCtx(a) {
     isOpen: isOpen(a.id),
     reveal: (d.reveal && d.reveal[a.id]) || null,
     rows: S.live.rowsFor(a.id) || [],
+    rowsOf: (id) => S.live.rowsFor(id) || [],
     names: S.live.names()
   };
 }

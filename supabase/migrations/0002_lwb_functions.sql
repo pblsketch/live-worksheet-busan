@@ -211,6 +211,39 @@ begin
   return jsonb_build_object('ok', true, 'payload', jsonb_build_object('template', v_tpl, 'blank', v_blank));
 end $$;
 
+-- rewrite: { "prompt": "<prompts 의 id>", "text": "5자~maxLength(기본 200, 최대 300)" }
+--   글은 앞뒤 공백을 떼고 연속 공백·줄 바꿈을 공백 하나로 바꾼 뒤 글자(코드 포인트) 수를 센다.
+create or replace function public.lwb_validate_rewrite(p_activity jsonb, p_payload jsonb)
+returns jsonb language plpgsql immutable set search_path = public, pg_temp as $$
+declare
+  v_prompt text;
+  v_text   text;
+  v_max    int := 200;
+begin
+  if jsonb_typeof(p_payload->'prompt') is distinct from 'string'
+     or not exists (select 1 from jsonb_array_elements(coalesce(p_activity->'prompts', '[]'::jsonb)) p
+                     where p->>'id' = p_payload->>'prompt') then
+    return jsonb_build_object('ok', false, 'msg', '고쳐 쓸 문장을 골라 주세요.');
+  end if;
+  v_prompt := p_payload->>'prompt';
+  if jsonb_typeof(p_activity->'maxLength') = 'number'
+     and (p_activity->>'maxLength')::numeric = trunc((p_activity->>'maxLength')::numeric)
+     and (p_activity->>'maxLength')::numeric between 5 and 300 then
+    v_max := (p_activity->>'maxLength')::numeric::int;
+  end if;
+  if jsonb_typeof(p_payload->'text') is distinct from 'string' then
+    return jsonb_build_object('ok', false, 'msg', '고쳐 쓴 문장을 적어 주세요.');
+  end if;
+  v_text := public.lwb_one_line(p_payload->>'text');
+  if char_length(v_text) < 5 then
+    return jsonb_build_object('ok', false, 'msg', '5자 이상 적어 주세요.');
+  end if;
+  if char_length(v_text) > v_max then
+    return jsonb_build_object('ok', false, 'msg', v_max || '자 이내로 적어 주세요.');
+  end if;
+  return jsonb_build_object('ok', true, 'payload', jsonb_build_object('prompt', v_prompt, 'text', v_text));
+end $$;
+
 -- 종류별 검사로 보내기 (서버의 종류 목록은 여기 한 곳)
 create or replace function public.lwb_validate_payload(p_activity jsonb, p_payload jsonb)
 returns jsonb language plpgsql immutable set search_path = public, pg_temp as $$
@@ -222,6 +255,7 @@ begin
     when 'ox'          then return public.lwb_validate_ox(p_activity, p_payload);
     when 'stage_check' then return public.lwb_validate_stage_check(p_activity, p_payload);
     when 'sentence'    then return public.lwb_validate_sentence(p_activity, p_payload);
+    when 'rewrite'     then return public.lwb_validate_rewrite(p_activity, p_payload);
     else return jsonb_build_object('ok', false, 'msg', '지원하지 않는 활동 종류입니다.');
   end case;
 end $$;
@@ -494,6 +528,7 @@ revoke all on function public.lwb_participant_responses(uuid)                fro
 revoke all on function public.lwb_validate_ox(jsonb, jsonb)                  from public, anon, authenticated;
 revoke all on function public.lwb_validate_stage_check(jsonb, jsonb)         from public, anon, authenticated;
 revoke all on function public.lwb_validate_sentence(jsonb, jsonb)            from public, anon, authenticated;
+revoke all on function public.lwb_validate_rewrite(jsonb, jsonb)             from public, anon, authenticated;
 revoke all on function public.lwb_validate_payload(jsonb, jsonb)             from public, anon, authenticated;
 revoke all on function public.lwb_anonymize_expired()                        from public, anon, authenticated;
 

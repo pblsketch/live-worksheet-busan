@@ -692,6 +692,7 @@ function board(ctx) {
 export default {
   type: 'stage_check',
   typeLabel: '단계 판단',
+  boardKeys: '↑ ↓ 보기',
   summary,
   participant,
   adminCard,

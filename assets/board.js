@@ -4,7 +4,8 @@
  * 주소: board.html?e=<연수 id>[&v=<화면 번호>]
  *   화면 순서: 활동마다 부품의 현황판 화면(설정 순서, 1…N) → 마지막 제출 현황(N+1)
  * 키: ← → (또는 발표용 리모컨의 PageUp·PageDown) 화면 넘기기 · F 전체화면
- *     ↑ ↓ 는 지금 화면의 부품에 넘긴다(stage_check 의 학습목표 보기 바꾸기)
+ *     키는 지금 화면의 부품이 먼저 받는다(stage_check ↑ ↓ 보기 바꾸기, sentence·rewrite ↑ ↓ PageUp PageDown 쪽 넘기기,
+ *     rewrite Enter·Esc·N 등). 부품이 쓰지 않은 키만 위의 틀 동작을 한다.
  * 오른쪽 위에 연결 상태(실시간 / 재조회 / 끊김)를 보인다.
  * 이 파일에는 활동 이름이나 연수 이름을 두지 않는다. 활동 화면은 부품(assets/activities/*)이 그린다.
  */
@@ -93,6 +94,7 @@ function ctxFor(s) {
     isOpen: B.live.isOpen(`open:${a.id}`),
     reveal: (d.reveal && d.reveal[a.id]) || null,
     rows: B.live.rowsFor(a.id),
+    rowsOf: (id) => B.live.rowsFor(id) || [],
     names: B.live.names(),
     participants: d.participants,
     keep: keepFor(a.id)
@@ -132,7 +134,8 @@ function drawConn() {
 
 function drawNav() {
   const s = cur();
-  const hasViews = s.kind === 'activity' && s.activity.type === 'stage_check';
+  const mod = s.kind === 'activity' ? moduleFor(s.activity.type) : null;
+  const more = mod && mod.boardKeys ? ` · ${esc(mod.boardKeys)}` : '';
   $('nav').innerHTML =
     '<div class="nav-list">' +
     B.screens.map((x, i) =>
@@ -141,7 +144,7 @@ function drawNav() {
       (x.kind === 'activity' ? `<span class="nn">${circ(x.index)}</span>${esc(x.activity.title)}` : '제출 현황') +
       '</button>').join('') +
     '</div>' +
-    `<div class="tip">← → 화면${hasViews ? ' · ↑ ↓ 보기' : ''} · F 전체화면</div>` +
+    `<div class="tip">← → 화면${more} · F 전체화면</div>` +
     '<button type="button" class="fs" data-act="fs" aria-label="전체화면">⛶</button>';
 }
 
@@ -251,13 +254,16 @@ function onKey(e) {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (!B.screens.length) return;
   const k = e.key;
+  // 지금 화면의 부품이 먼저 받는다(쪽 넘기기·보기 바꾸기·골라 띄우기)
+  if (B.view && typeof B.view.onKey === 'function') {
+    let used = false;
+    try { used = B.view.onKey(k, e); } catch (err) { console.error(err); }
+    if (used) { e.preventDefault(); return; }
+  }
   if (k === 'ArrowRight' || k === 'PageDown') { e.preventDefault(); go(B.idx + 1); return; }
   if (k === 'ArrowLeft' || k === 'PageUp') { e.preventDefault(); go(B.idx - 1); return; }
   // 한글 입력 상태에서도 F 자리 키면 된다
-  if (e.code === 'KeyF' || k === 'f' || k === 'F') { e.preventDefault(); toggleFullscreen(); return; }
-  if ((k === 'ArrowUp' || k === 'ArrowDown') && B.view && typeof B.view.onKey === 'function') {
-    if (B.view.onKey(k)) e.preventDefault();
-  }
+  if (e.code === 'KeyF' || k === 'f' || k === 'F') { e.preventDefault(); toggleFullscreen(); }
 }
 
 function onClick(e) {

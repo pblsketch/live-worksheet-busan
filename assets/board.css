@@ -261,6 +261,93 @@ b{font-weight:700}
 }
 .sncard .nm{margin-left:auto;font-size:2.4rem;font-weight:700;color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
+/* ═══════ 쪽 넘김 (sentence · rewrite) ═══════ */
+.pg{display:inline-flex;align-items:center;gap:1rem;font-size:2.4rem;color:var(--ink-soft);white-space:nowrap}
+.pg b{color:var(--ink);font-size:3rem}
+.pgb{
+  width:4.6rem;height:4.6rem;border-radius:1rem;background:var(--card);border:.2rem solid var(--line);
+  font-size:3.2rem;line-height:1;display:grid;place-items:center;color:var(--ink);
+}
+.pgb[disabled]{opacity:.3;cursor:default}
+.pg-new{font-size:2.2rem;font-weight:700;color:#fff;background:var(--amber);padding:.3rem 1.4rem;border-radius:2rem;white-space:nowrap}
+
+/* ═══════ 고쳐 쓰기(rewrite) ═══════ */
+.rw{position:relative;display:flex;flex-direction:column;min-height:0}
+.rw-top{flex:none;display:flex;align-items:center;flex-wrap:wrap;gap:1rem 2rem;margin-bottom:1.2rem;min-height:5rem}
+.rw-tabs{display:inline-flex;flex-wrap:wrap;gap:.8rem}
+.rw-top .sp{flex:1}
+.rw-names{font-size:2.2rem;font-weight:700;padding:.6rem 1.6rem;border-radius:3rem;background:var(--paper2);color:var(--ink-soft);border:.2rem solid var(--line);white-space:nowrap}
+.rw-names.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.rw-names small{font-size:1.8rem;opacity:.7;margin-left:.4rem}
+.rw-pg{display:inline-flex;align-items:center;gap:1.2rem}
+.rw-prompt{flex:none;display:flex;flex-direction:column;gap:.4rem;margin-bottom:1.4rem;background:var(--card-blue);border-radius:1.4rem;padding:1rem 2rem}
+.rw-prompt:empty{display:none}
+.rw-prompt .rq{display:flex;align-items:baseline;gap:1rem;min-width:0;font-size:2.4rem;color:var(--ink-soft);line-height:1.4}
+.rw-prompt .rq .tag{flex:none}
+.rw-prompt .rqt{font-family:'Noto Serif KR',serif}
+.rw-body{flex:1;min-height:0;position:relative}
+.rw-body > .blank{height:100%;display:flex;flex-direction:column;justify-content:center}
+.rw-cols{height:100%;display:grid;grid-template-columns:repeat(var(--cols),minmax(0,1fr));gap:2.4rem}
+.rw-col,.rw-measure{min-height:0;display:flex;flex-direction:column;gap:1.6rem}
+.rw-col{overflow:hidden;padding:.6rem}
+.rwcard,.rwpair{
+  display:block;width:100%;text-align:left;flex:none;background:var(--card);border:1px solid var(--line);
+  border-radius:1.6rem;padding:1.5rem 2.2rem 1.6rem;box-shadow:var(--shadow-sm);font-size:2.6rem;
+}
+.rwcard:hover,.rwpair:hover{border-color:var(--blue)}
+.rwcard:focus,.rwpair:focus{outline:none}
+.rwcard.cursor,.rwpair.cursor,.rwcard:focus-visible,.rwpair:focus-visible{outline:.5rem solid var(--blue);outline-offset:.2rem}
+.rwcard.fresh,.rwpair.fresh{
+  background:var(--fresh);border-color:var(--amber);box-shadow:inset 0 0 0 .5rem var(--amber);
+  animation:drop .6s cubic-bezier(.2,.9,.3,1);
+}
+.rwcard .rh,.rwpair .rh{display:flex;align-items:center;gap:1.2rem;margin-bottom:.8rem;min-width:0}
+.rwcard .rh:empty,.rwpair .rh:empty{display:none}
+.rwcard .nm,.rwpair .nm{margin-left:auto;font-size:2.4rem;font-weight:700;color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rwcard .tx{display:block;font-family:'Noto Serif KR',serif;font-size:2.6rem;line-height:1.55;color:var(--ink)}
+.rwpair .pp{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:3rem}
+.rwpair .p1,.rwpair .p2{display:block;min-width:0}
+.rwpair .lb{display:block;font-size:2rem;font-weight:800;color:var(--ink-soft);margin-bottom:.4rem}
+.rwpair .tx{display:block;font-family:'Noto Serif KR',serif;line-height:1.55}
+.rwpair .p1 .tx{font-size:2.4rem;color:var(--ink-soft)}
+.rwpair .p2 .tx{font-size:2.6rem;color:var(--ink)}
+mark{background:linear-gradient(transparent 40%, #f5e3a4 40%);color:inherit;padding:0 .2rem;border-radius:.2rem}
+
+/* 골라 띄우기: 한 장을 가운데 크게. 위에 원래 문장, 옆에 점검 질문 */
+.rw-spot{position:absolute;inset:0;z-index:5;background:var(--paper);display:flex;flex-direction:column;gap:2rem}
+.rw.spotting > .rw-top,.rw.spotting > .rw-prompt,.rw.spotting > .rw-body{visibility:hidden}
+.sp-q{flex:none;display:flex;align-items:baseline;gap:1.4rem;font-size:2.6rem;line-height:1.4;color:var(--ink-soft);background:var(--card-blue);border-radius:1.4rem;padding:1.2rem 2.4rem}
+.sp-q .tag{flex:none}
+.sp-ql{flex:none;font-weight:700;font-size:2.2rem}
+.sp-qt{font-family:'Noto Serif KR',serif}
+.sp-body{flex:1;min-height:0;display:flex;gap:3.6rem}
+.sp-main{
+  flex:1;min-width:0;display:flex;flex-direction:column;justify-content:safe center;overflow:hidden;
+  background:var(--card);border:1px solid var(--line);border-radius:2.4rem;padding:4rem 5rem;box-shadow:var(--shadow-sm);
+}
+.sp-text{font-family:'Noto Serif KR',serif;font-size:5rem;line-height:1.6;font-weight:500}
+.sp-text.m{font-size:4.2rem}
+.sp-text.s{font-size:3.4rem}
+.sp-pair{display:flex;flex-direction:column;gap:3rem}
+.sp-pair .lb{display:block;font-size:2.4rem;font-weight:800;color:var(--ink-soft);margin-bottom:.6rem}
+.sp-pair .tx{display:block;font-family:'Noto Serif KR',serif;line-height:1.55}
+.sp-1 .tx{font-size:3.2rem;color:var(--ink-soft)}
+.sp-2 .tx{font-size:4.2rem;font-weight:500}
+.sp-pair.s .sp-1 .tx{font-size:2.6rem}
+.sp-pair.s .sp-2 .tx{font-size:3.2rem}
+.sp-nm{margin-top:2.4rem;font-size:2.8rem;font-weight:700;color:var(--ink-soft);text-align:right}
+.sp-checks{flex:0 0 52rem;min-width:0;background:var(--card-blue);border-radius:2rem;padding:2.8rem 3rem;overflow:hidden}
+.sp-checks ol{margin:0;padding:0;list-style:none;counter-reset:c;display:flex;flex-direction:column;gap:2.4rem}
+.sp-checks li{position:relative;padding-left:5.2rem;font-size:3rem;line-height:1.45}
+.sp-checks li::before{
+  counter-increment:c;content:counter(c);position:absolute;left:0;top:.2rem;width:3.8rem;height:3.8rem;border-radius:50%;
+  background:var(--blue);color:#fff;font-size:2.4rem;font-weight:800;display:grid;place-items:center;
+}
+.sp-foot{flex:none;display:flex;align-items:center;gap:2.4rem;font-size:2.2rem;color:var(--ink-soft)}
+.sp-n{font-weight:700;color:var(--ink);font-size:2.6rem}
+.sp-keys{flex:1}
+.sp-close{font-size:2.4rem;font-weight:700;padding:.8rem 2.4rem;border-radius:1.2rem;background:var(--blue);color:#fff}
+
 /* ═══════ 제출 현황 ═══════ */
 .st{display:flex;flex-direction:column;min-height:0}
 .gauges{flex:none;display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:2rem;margin-bottom:2.4rem}

@@ -21,9 +21,10 @@ const COMMON_ACTIVITY_KEYS = ['id', 'type', 'title', 'description'];
 const TYPE_KEYS = {
   ox: ['questions', 'choices'],
   stage_check: ['items', 'objectives', 'allowCustom', 'criteria', 'example', 'stages'],
-  sentence: ['templates'],
-  rewrite: ['round', 'pairOf', 'level', 'prompts', 'checks', 'maxLength']
+  sentence: ['templates', 'image'],
+  rewrite: ['round', 'pairOf', 'level', 'prompts', 'checks', 'maxLength', 'context']
 };
+const REWRITE_CONTEXT_KEYS = ['case', 'task', 'standard', 'grasps', 'guide', 'levels', 'note'];
 
 /** rewrite 글자 수: 최소 5자, maxLength 기본 200 · 최대 300 */
 export const REWRITE_MIN = 5;
@@ -151,7 +152,24 @@ function checkStageCheck(a, p, errors) {
   }
 }
 
+/** 그림 주소: 저장소 안 상대 경로(앞에 / 나 .. 없이) 또는 https 주소 */
+function validImageSrc(s) {
+  if (!nonEmpty(s)) return false;
+  if (/^https:\/\//i.test(s)) return true;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(s) || s.startsWith('/') || s.startsWith('\\')) return false;
+  return !s.split(/[\\/]/).includes('..');
+}
+
+function checkImage(a, p, errors) {
+  if (a.image === undefined) return;
+  const im = a.image;
+  if (!isObj(im)) return errors.push(`${p}.image: { "src": "…", "alt": "…" } 형식이어야 합니다.`);
+  if (!validImageSrc(im.src)) errors.push(`${p}.image.src: 저장소 안의 상대 경로(예: assets/img/grow.jpg)나 https 주소여야 합니다.`);
+  if (im.alt !== undefined && !(isStr(im.alt) && len(im.alt) <= 200)) errors.push(`${p}.image.alt: 200자 이내 문자열이어야 합니다.`);
+}
+
 function checkSentence(a, p, errors) {
+  checkImage(a, p, errors);
   if (!Array.isArray(a.templates) || a.templates.length === 0) {
     errors.push(`${p}.templates: 문장 틀 목록(1개 이상)이 필요합니다.`);
     return;
@@ -174,6 +192,53 @@ function checkSentence(a, p, errors) {
   });
 }
 
+/** rewrite 의 과제 맥락: 사례·과제 이름, 성취기준, GRASPS, 성취기준 해설, 성취수준 */
+function checkRewriteContext(c, p, errors, warnings) {
+  if (!isObj(c)) return errors.push(`${p}: 객체여야 합니다.`);
+  for (const k of Object.keys(c)) if (!REWRITE_CONTEXT_KEYS.includes(k)) warnings.push(`${p}: 알 수 없는 칸 "${k}" (그대로 저장됩니다)`);
+  for (const k of ['case', 'task', 'note']) {
+    if (c[k] !== undefined && !isStr(c[k])) errors.push(`${p}.${k}: 문자열이어야 합니다.`);
+  }
+  if (c.standard !== undefined) {
+    const s = c.standard;
+    if (!isObj(s) || !nonEmpty(s.text)) errors.push(`${p}.standard: { "code", "text" } 형식이고 성취기준 문장(text)이 있어야 합니다.`);
+    else if (s.code !== undefined && !isStr(s.code)) errors.push(`${p}.standard.code: 문자열이어야 합니다.`);
+  }
+  if (c.grasps !== undefined) {
+    if (!Array.isArray(c.grasps) || c.grasps.length === 0) errors.push(`${p}.grasps: [{ "key", "name", "text" }] 1개 이상이어야 합니다.`);
+    else c.grasps.forEach((g, i) => {
+      if (!isObj(g) || !nonEmpty(g.text)) return errors.push(`${p}.grasps[${i}]: 내용(text)이 필요합니다.`);
+      if (g.key !== undefined && !(isStr(g.key) && len(g.key) <= 4)) errors.push(`${p}.grasps[${i}].key: 4자 이내 문자열이어야 합니다(예: "G").`);
+      if (g.name !== undefined && !isStr(g.name)) errors.push(`${p}.grasps[${i}].name: 문자열이어야 합니다.`);
+    });
+  }
+  if (c.guide !== undefined) {
+    const g = c.guide;
+    if (!isObj(g) || !Array.isArray(g.items) || g.items.length === 0 || !g.items.every(nonEmpty)) {
+      errors.push(`${p}.guide: { "title", "lead", "items": [문자열…], "source" } 형식이고 items 가 1개 이상이어야 합니다.`);
+    } else {
+      for (const k of ['title', 'lead', 'source']) {
+        if (g[k] !== undefined && !isStr(g[k])) errors.push(`${p}.guide.${k}: 문자열이어야 합니다.`);
+      }
+    }
+  }
+  if (c.levels !== undefined) {
+    const l = c.levels;
+    if (!isObj(l) || !Array.isArray(l.items) || l.items.length === 0) {
+      errors.push(`${p}.levels: { "title", "items": [{ "level", "text" }…], "source" } 형식이고 items 가 1개 이상이어야 합니다.`);
+    } else {
+      l.items.forEach((x, i) => {
+        if (!isObj(x) || !(isStr(x.level) && x.level.trim() && len(x.level) <= 4) || !nonEmpty(x.text)) {
+          errors.push(`${p}.levels.items[${i}]: 수준(level, 4자 이내)과 기술(text)이 필요합니다.`);
+        }
+      });
+      for (const k of ['title', 'source']) {
+        if (l[k] !== undefined && !isStr(l[k])) errors.push(`${p}.levels.${k}: 문자열이어야 합니다.`);
+      }
+    }
+  }
+}
+
 /** rewrite 가 1차(round 1, 없으면 1)인가 */
 const firstRound = (a) => isObj(a) && a.type === 'rewrite' && (a.round === undefined || a.round === 1);
 
@@ -191,12 +256,14 @@ function checkRewrite(a, p, errors, { warnings, pub }) {
     a.prompts.forEach((x, i) => {
       if (!isObj(x)) return errors.push(`${p}.prompts[${i}]: 객체여야 합니다.`);
       if (!nonEmpty(x.text)) errors.push(`${p}.prompts[${i}].text: 문장이 필요합니다.`);
+      if (x.element !== undefined && !nonEmpty(x.element)) errors.push(`${p}.prompts[${i}].element: 평가 요소는 비어 있지 않은 문자열이어야 합니다.`);
     });
     if (a.prompts.length > 9) warnings.push(`${p}.prompts: 현황판 숫자 키(1~9)로는 앞의 9개만 고를 수 있습니다.`);
   }
   if (a.checks !== undefined && (!Array.isArray(a.checks) || !a.checks.every(nonEmpty))) {
     errors.push(`${p}.checks: 비어 있지 않은 문자열 배열이어야 합니다.`);
   }
+  if (a.context !== undefined) checkRewriteContext(a.context, `${p}.context`, errors, warnings);
 
   // 짝: 2차는 같은 연수의 1차 rewrite 와 짝짓는다
   const acts = Array.isArray(pub.activities) ? pub.activities : [];

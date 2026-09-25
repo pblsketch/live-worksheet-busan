@@ -144,3 +144,30 @@ describe('sentence 글상자 안내 문구 (placeholder)', () => {
     assert.deepEqual(validatePublic('x-sn', pub(undefined)).errors, []);
   });
 });
+
+describe('sentence 그림 (image)', () => {
+  const act = (image) => ({ id: 'grow', type: 'sentence', title: '문장', image, templates: [{ id: 't', before: '나는', after: '' }] });
+
+  it('그림 HTML: 주소와 대체 글은 이스케이프하고, 없으면 빈 문자열', async () => {
+    const { imageHTML } = await import('../../assets/activities/sentence.js');
+    assert.equal(imageHTML(act({ src: 'assets/img/grow.jpg', alt: '학생들' })),
+      '<figure class="act-img"><img src="assets/img/grow.jpg" alt="학생들" decoding="async"></figure>');
+    assert.match(imageHTML(act({ src: 'a.jpg', alt: '"><script>' })), /alt="&quot;&gt;&lt;script&gt;"/);
+    assert.equal(imageHTML(act(undefined)), '');
+    assert.equal(imageHTML(act({ alt: '주소 없음' })), '');
+  });
+
+  it('형식 검사: 저장소 안 상대 경로나 https 주소, 대체 글 200자 이내', async () => {
+    const { validatePublic } = await import('../../tools/lib/event-config.mjs');
+    const errs = (image) => validatePublic('x-sn', { title: '시험', date: '2026-10-19', activities: [act(image)] });
+    for (const src of ['assets/img/grow.jpg', 'materials/shared/a.png', 'https://example.com/a.jpg']) {
+      assert.deepEqual(errs({ src, alt: '그림' }).errors, [], src);
+      assert.deepEqual(errs({ src }).warnings, [], src);
+    }
+    for (const src of ['', '/abs.jpg', '../up.jpg', 'assets/../../x.jpg', 'http://example.com/a.jpg', 'javascript:alert(1)', 'data:image/png;base64,AA', 3]) {
+      assert.ok(errs({ src }).errors.some((e) => /image\.src/.test(e)), String(src));
+    }
+    assert.ok(errs({ src: 'a.jpg', alt: '가'.repeat(201) }).errors.some((e) => /image\.alt/.test(e)));
+    assert.ok(errs('a.jpg').errors.some((e) => /image: /.test(e)));
+  });
+});

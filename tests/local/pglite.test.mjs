@@ -105,26 +105,36 @@ describe('PGlite: 반곡고 판 위에 부산 판 마이그레이션', () => {
     };
     const submit = (activity, payload) => rpc('lwb_submit', { p_event_id: 'busan1019', p_participant_id: pid, p_activity_id: activity, p_payload: payload });
 
+    // 9/25 배포본에는 2차(rewrite2)가 있었다. 그 위에 지금 설정을 다시 등록하는 실제 순서를 흉내 낸다
+    const OLD = JSON.parse(JSON.stringify(BUSAN));
+    OLD.activities.splice(3, 0, { ...JSON.parse(JSON.stringify(OLD.activities[2])), id: 'rewrite2', round: 2, pairOf: 'rewrite1' });
+    OLD.activities[2].round = 1;
+
     before(async () => {
       const secret = JSON.parse(JSON.stringify({ reveal: { ox: { answers: ['O', 'X', 'O'] } } }));
+      const r0 = (await db.query(registerSql('busan1019', OLD, secret, PASS))).rows[0];
+      assert.deepEqual(r0.inserted, ['materials_open', 'open:grow', 'open:ox', 'open:pledge', 'open:rewrite1', 'open:rewrite2', 'reveal:ox']);
+      assert.deepEqual(await rpc('lwb_admin_set', { p_event_id: 'busan1019', p_key: 'open:rewrite1', p_value: 'Y', p_passcode: PASS }),
+        { ok: true, key: 'open:rewrite1', value: 'Y' });
       const r = (await db.query(registerSql('busan1019', BUSAN, secret, PASS))).rows[0];
       assert.equal(r.secrets, 1);
-      assert.deepEqual(r.inserted, ['materials_open', 'open:grow', 'open:ox', 'open:pledge', 'open:rewrite1', 'open:rewrite2', 'reveal:ox']);
-      for (const k of ['open:rewrite1', 'open:rewrite2']) {
-        assert.deepEqual(await rpc('lwb_admin_set', { p_event_id: 'busan1019', p_key: k, p_value: 'Y', p_passcode: PASS }),
-          { ok: true, key: k, value: 'Y' });
-      }
+      assert.deepEqual(r.inserted, []);
+      assert.deepEqual(r.stale, ['open:rewrite2']); // 설정에서 뺀 활동의 키는 알려만 주고 지우지 않는다
       const j = await rpc('lwb_join', { p_event_id: 'busan1019', p_name: '로컬 참가자', p_mode: 'new' });
       assert.equal(j.ok, true);
       pid = j.participant.id;
     });
 
-    it('등록한 연수를 불러온다(정답은 공개 전이라 없다)', async () => {
+    it('등록한 연수를 불러온다(정답은 공개 전이라 없다, 다시 등록해도 열어 둔 활동은 그대로, 과제 맥락도 내려온다)', async () => {
       const g = await rpc('lwb_get_event', { p_event_id: 'busan1019' });
       assert.equal(g.ok, true);
-      assert.deepEqual(g.event.activities.map((a) => a.id), ['grow', 'ox', 'rewrite1', 'rewrite2', 'pledge']);
+      assert.deepEqual(g.event.activities.map((a) => a.id), ['grow', 'ox', 'rewrite1', 'pledge']);
       assert.deepEqual(g.reveal, {});
       assert.equal(g.settings['open:rewrite1'], 'Y');
+      const rw = g.event.activities[2];
+      assert.equal(rw.context.standard.code, '[10국03-02]');
+      assert.equal(rw.prompts[0].element, BUSAN.activities[2].prompts[0].element);
+      assert.equal(g.event.activities[0].image.src, 'assets/img/grow.jpg');
       assert.equal((await rpc('lwb_admin_check', { p_event_id: 'busan1019', p_passcode: PASS })).ok, true);
       assert.equal((await rpc('lwb_admin_check', { p_event_id: 'busan1019', p_passcode: PASS.toLowerCase() })).ok, false);
     });
@@ -147,16 +157,13 @@ describe('PGlite: 반곡고 판 위에 부산 판 마이그레이션', () => {
       assert.deepEqual(await submit('rewrite1', { prompt: 'b', text: '😀'.repeat(200) }), { ok: true }); // 이모지 하나 = 한 글자
     });
 
-    it('rewrite: 다시 내면 덮어쓴다((연수, 활동, 참가자)마다 1건), 2차도 같은 규칙', async () => {
-      assert.deepEqual(await submit('rewrite1', { prompt: 'a', text: '고쳐서 다시 낸 1차 문장' }), { ok: true });
-      assert.deepEqual(await submit('rewrite2', { prompt: 'a', text: '고쳐서 낸 2차 문장입니다' }), { ok: true });
+    it('rewrite: 다시 내면 덮어쓴다((연수, 활동, 참가자)마다 1건), 설정에서 뺀 2차에는 낼 수 없다', async () => {
+      assert.deepEqual(await submit('rewrite1', { prompt: 'a', text: '고쳐서 다시 낸 문장입니다' }), { ok: true });
+      assert.equal((await submit('rewrite2', { prompt: 'a', text: '뺀 활동에 낸 문장입니다' })).ok, false);
       const rows = await asAnon(db, `select activity_id, payload from public.lwb_responses where participant_id = $1 order by activity_id`, [pid]);
-      assert.deepEqual(rows, [
-        { activity_id: 'rewrite1', payload: { prompt: 'a', text: '고쳐서 다시 낸 1차 문장' } },
-        { activity_id: 'rewrite2', payload: { prompt: 'a', text: '고쳐서 낸 2차 문장입니다' } }
-      ]);
+      assert.deepEqual(rows, [{ activity_id: 'rewrite1', payload: { prompt: 'a', text: '고쳐서 다시 낸 문장입니다' } }]);
       const r = await rpc('lwb_restore', { p_event_id: 'busan1019', p_participant_id: pid });
-      assert.deepEqual(Object.keys(r.responses).sort(), ['rewrite1', 'rewrite2']);
+      assert.deepEqual(Object.keys(r.responses).sort(), ['rewrite1']);
     });
 
     it('닫힌 활동·다른 종류의 규칙', async () => {
@@ -187,7 +194,7 @@ describe('PGlite: 반곡고 판 위에 부산 판 마이그레이션', () => {
       const r = await rpc('lwb_admin_reset', { p_event_id: 'busan1019', p_passcode: PASS });
       assert.equal(r.ok, true);
       assert.equal(r.participants, 1);
-      assert.equal(r.responses, 4);
+      assert.equal(r.responses, 3); // rewrite1 · grow · ox
     });
   });
 });

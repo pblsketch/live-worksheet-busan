@@ -3,6 +3,7 @@
  *
  * 공개 설정: templates[{ id, label, before, after, placeholder? }] — 틀이 둘 이상이면 참가자가 하나를 고른다.
  *           placeholder 는 글상자 안내 문구(60자 이내, 없으면 '빈칸에 들어갈 말')
+ *           image?{ src, alt } — 쓰는 화면 위에 두는 그림(강의 슬라이드의 삽화 등). src 는 저장소 안 상대 경로나 https 주소
  * payload: { template: '<틀 id>', blank: '2~60자' }
  */
 import { esc, rich, len, oneLine } from '../core.js';
@@ -30,6 +31,13 @@ export function placeholderOf(tpl) {
 export function sentenceHTML(tpl, blank) {
   if (!tpl) return esc(blank);
   return `${tpl.before ? `${rich(tpl.before)} ` : ''}<b>${esc(blank)}</b>${tpl.after ? ` ${rich(tpl.after)}` : ''}`;
+}
+
+/** 쓰는 화면 위 그림(설정에 image 가 있을 때만) */
+export function imageHTML(activity) {
+  const im = activity && activity.image;
+  if (!im || typeof im.src !== 'string' || !im.src) return '';
+  return `<figure class="act-img"><img src="${esc(im.src)}" alt="${esc(im.alt || '')}" decoding="async"></figure>`;
 }
 
 /* ───────────── 참가자 화면 ───────────── */
@@ -64,6 +72,7 @@ function participant(ctx) {
 
   function drawForm() {
     root.innerHTML =
+      imageHTML(a) +
       (a.description ? `<div class="hint lead">${rich(a.description)}</div>` : '') +
       (multi
         ? `<div class="step"><span>1</span>${tpls.length === 2 ? '둘 중 하나를 고르세요' : `${tpls.length}개 가운데 하나를 고르세요`}</div>` +

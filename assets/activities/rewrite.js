@@ -1,8 +1,11 @@
 /**
  * 활동 부품: rewrite (수행 특성 문장 고쳐 쓰기. 1차·2차를 활동 두 개로 두고 참가자별로 짝짓는다)
  *
- * 공개 설정: round(1|2, 기본 1), pairOf?(2차의 짝 1차 활동 id), level?('잘함'), prompts[{id,text}],
- *           checks?[점검 질문], maxLength?(기본 200, 최대 300)
+ * 공개 설정: round(1|2, 기본 1), pairOf?(2차의 짝 1차 활동 id), level?('잘함'), prompts[{id,text,element?}],
+ *           checks?[점검 질문], maxLength?(기본 200, 최대 300),
+ *           context?{ case, task, standard{code,text}, grasps[{key,name,text}], guide{title,lead,items,source},
+ *                     levels{title,items[{level,text}],source}, note } — 고쳐 쓸 칸이 들어 있던 과제의 맥락
+ *           element 는 그 문장이 들어 있던 채점기준표 줄의 평가 요소
  * payload: { prompt: '<prompts 의 id>', text: '5자~maxLength' } — 앞뒤 공백을 떼고 연속 공백·줄 바꿈은 공백 하나(서버와 같다)
  * 참가자: 문장을 하나 골라 고쳐 쓴다. 2차는 1차에서 고른 문장과 내 1차 문장을 위에 두고, 글상자를 1차 문장으로 채워 둔다.
  * 현황판: 모아 보기(카드 벽 · 고른 문장별 나눠 보기 · 쪽 넘김) · 골라 띄우기(한 장을 크게) · 나란히 보기(1차 | 2차)
@@ -131,6 +134,56 @@ function levelText(a) {
   return a.level ? `‘${esc(a.level)}’ 수준` : '';
 }
 
+/** 문장이 들어 있던 채점기준표 줄의 평가 요소(설정에 있을 때만) */
+export function elementHTML(p) {
+  return p && p.element ? `<span class="rw-el"><span class="rw-el-l">평가 요소</span>${rich(p.element)}</span>` : '';
+}
+
+const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+const strs = (xs) => (Array.isArray(xs) ? xs.filter((x) => typeof x === 'string' && x) : []);
+
+/**
+ * 과제 맥락(설정의 context). 사례·과제 이름과 성취기준은 늘 보이고,
+ * 수행과제(GRASPS)·성취기준 해설·성취수준은 펼쳐 본다.
+ * @param {object} c context
+ * @param {{ grasps?: boolean, guide?: boolean, levels?: boolean }} open 펼쳐 둘 칸
+ */
+export function contextHTML(c, open = {}) {
+  if (!isObj(c)) return '';
+  const more = (sec, label, body) =>
+    `<details class="rw-more" data-sec="${sec}"${open[sec] ? ' open' : ''}><summary>${label}</summary>${body}</details>`;
+  const src = (s) => (s ? `<div class="rw-src">${rich(s)}</div>` : '');
+  let h = '<section class="rw-ctx" aria-label="과제 맥락"><div class="rw-ctx-h">이 칸이 들어 있던 과제</div>';
+  if (c.case) h += `<div class="rw-ctx-case">${rich(c.case)}</div>`;
+  if (c.task) h += `<div class="rw-ctx-task">${rich(c.task)}</div>`;
+  const s = c.standard;
+  if (isObj(s) && s.text) {
+    h += `<div class="rw-std"><span class="rw-std-l">성취기준${s.code ? ` <b>${rich(s.code)}</b>` : ''}</span>` +
+      `<span class="rw-std-t">${rich(s.text)}</span></div>`;
+  }
+  const g = (Array.isArray(c.grasps) ? c.grasps : []).filter((x) => isObj(x) && x.text);
+  if (g.length) {
+    h += more('grasps', '수행과제 · GRASPS', '<dl class="rw-grasps">' + g.map((x) =>
+      `<div><dt>${x.key ? `<b>${rich(x.key)}</b>` : ''}${rich(x.name || '')}</dt><dd>${rich(x.text)}</dd></div>`).join('') + '</dl>');
+  }
+  const gd = c.guide;
+  if (isObj(gd) && strs(gd.items).length) {
+    h += more('guide', rich(gd.title || '성취기준 해설'),
+      (gd.lead ? `<p class="rw-lead">${rich(gd.lead)}</p>` : '') +
+      `<ul class="rw-guide">${strs(gd.items).map((x) => `<li>${rich(x)}</li>`).join('')}</ul>` + src(gd.source));
+  }
+  const lv = isObj(c.levels) ? (Array.isArray(c.levels.items) ? c.levels.items : []).filter((x) => isObj(x) && x.text) : [];
+  if (lv.length) {
+    // 칸 이름: 설정의 title(예: 2015 개정 '평가기준 상·중·하'), 없으면 '성취수준 A~E'
+    const range = lv.length > 1 && lv[0].level && lv[lv.length - 1].level ? ` ${esc(lv[0].level)}~${esc(lv[lv.length - 1].level)}` : '';
+    const label = c.levels.title ? rich(c.levels.title) : `성취수준${range}`;
+    h += more('levels', label, '<dl class="rw-levels">' + lv.map((x) =>
+      `<div><dt>${rich(x.level || '')}</dt><dd>${rich(x.text)}</dd></div>`).join('') + '</dl>' + src(c.levels.source));
+  }
+  if (c.note) h += `<div class="rw-ctx-note">${rich(c.note)}</div>`;
+  return `${h}</section>`;
+}
+
 /* ───────────── 참가자 화면 ───────────── */
 
 function participant(ctx) {
@@ -161,6 +214,17 @@ function participant(ctx) {
   // 내가 낸 것: 화면을 만든 뒤에 낸 것도 여기에 둔다(ctx.mine 은 화면을 만들 때의 값이다)
   let mine = ctx.mine || null;
 
+  // 과제 맥락에서 펼쳐 둔 칸: 문장을 고르는 화면은 GRASPS 를 펼쳐 두고, 쓰는 화면은 모두 접어 둔다.
+  // 참가자가 열고 닫은 것은 화면마다 기억한다(다시 그려도 그대로)
+  const ctxOpen = { pick: { grasps: true }, write: {} };
+  let ctxScreen = 'pick';
+  const ctxPanel = (screen) => { ctxScreen = screen; return contextHTML(a.context, ctxOpen[screen]); };
+  const onToggle = (e) => {
+    const d = e.target;
+    if (d && d.matches && d.matches('details.rw-more')) ctxOpen[ctxScreen][d.dataset.sec] = d.open;
+  };
+  root.addEventListener('toggle', onToggle, true); // toggle 은 거품이 일지 않아 잡기 단계에서 받는다
+
   const save = () => draft.save(form);
   const lockedPrompt = () => {
     const f = firstOf();
@@ -188,16 +252,17 @@ function participant(ctx) {
     if (f) {
       head += '<div class="rw-ref">' +
         '<div class="rw-ref-h">1차에서 고른 문장</div>' +
-        `<div class="rw-q">${tagHTML(f.prompt)}<span class="rw-qt">${rich(p ? p.text : '')}</span></div>` +
+        `<div class="rw-q">${tagHTML(f.prompt)}<span class="rw-qt">${rich(p ? p.text : '')}</span>${elementHTML(p)}</div>` +
         '<div class="rw-ref-h">내 1차 문장</div>' +
         `<div class="rw-first">${esc(f.text)}</div></div>`;
     } else if (!p) {
       head += (partner ? '<div class="hint rw-note">1차에 낸 문장이 없습니다. 문장을 골라 바로 써 주세요.</div>' : '') +
+        ctxPanel('pick') +
         `<div class="step"><span>1</span>${prompts.length === 2 ? '두 문장 가운데 하나를 고르세요' : `${prompts.length}개 가운데 하나를 고르세요`}</div>` +
         '<div class="rw-picks" id="rwPicks">' +
         prompts.map((x) =>
           `<label class="rw-pick"><input type="radio" name="rwp" value="${esc(x.id)}">` +
-          `${tagHTML(x.id)}<span class="rw-qt">${rich(x.text)}</span></label>`).join('') +
+          `${tagHTML(x.id)}<span class="rw-qt">${rich(x.text)}</span>${elementHTML(x)}</label>`).join('') +
         '</div>';
       root.innerHTML = head + checksHTML();
       root.querySelector('#rwPicks').addEventListener('change', (e) => {
@@ -210,7 +275,7 @@ function participant(ctx) {
       });
       return;
     } else {
-      head += `<div class="rw-q on">${tagHTML(p.id)}<span class="rw-qt">${rich(p.text)}</span>` +
+      head += `<div class="rw-q on">${tagHTML(p.id)}<span class="rw-qt">${rich(p.text)}</span>${elementHTML(p)}` +
         (prompts.length > 1 ? '<button type="button" class="link-btn rw-repick" data-act="repick">다른 문장 고르기</button>' : '') +
         '</div>';
     }
@@ -223,7 +288,7 @@ function participant(ctx) {
       `<textarea id="rwText" rows="5" maxlength="${max}" placeholder="${f ? '1차 문장을 고쳐 써 주세요' : '고쳐 쓴 문장을 적어 주세요'}">${esc(form.text)}</textarea>` +
       `<div class="rw-count" id="rwLeft">${leftHTML()}</div>` +
       '</div>' +
-      checksHTML() +
+      `<div class="rw-side">${checksHTML()}${ctxPanel('write')}</div>` +
       '</div>' +
       `<div class="sticky-b"><button class="btn" data-act="submit">${mine ? '고쳐서 다시 내기' : '제출하기'}</button></div>`;
 
@@ -267,7 +332,7 @@ function participant(ctx) {
       `<div class="hint">${cur.isOpen ? '열려 있는 동안은 다시 내서 고칠 수 있습니다.' : '진행자가 활동을 닫아 더 고칠 수 없습니다.'}</div>` +
       '</div>' +
       '<div class="card flat rw-done">' +
-      (p ? `<div class="rw-q">${tagHTML(p.id)}<span class="rw-qt">${rich(p.text)}</span></div>` : '') +
+      (p ? `<div class="rw-q">${tagHTML(p.id)}<span class="rw-qt">${rich(p.text)}</span>${elementHTML(p)}</div>` : '') +
       (cmp
         ? '<div class="rw-cmp">' +
           `<div class="c1"><span class="lb">1차</span>${esc(f.text)}</div>` +
@@ -308,7 +373,9 @@ function participant(ctx) {
         drawResult();
       }
     },
-    destroy() {}
+    destroy() {
+      root.removeEventListener('toggle', onToggle, true);
+    }
   };
 }
 
@@ -316,7 +383,9 @@ function participant(ctx) {
 
 function summary(activity) {
   const n = (activity.prompts || []).length;
-  return `${activity.round === 2 ? '2차' : '1차'} · ${n > 1 ? `문장 ${n}개 가운데 하나` : '문장 하나'}`;
+  // 차수는 round 를 적었을 때만 붙인다(1차·2차로 나누지 않는 연수는 round 를 비운다)
+  const round = activity.round === 2 ? '2차 · ' : (activity.round === 1 ? '1차 · ' : '');
+  return `${round}${n > 1 ? `문장 ${n}개 가운데 하나` : '문장 하나'}`;
 }
 
 function adminCard(ctx) {
@@ -541,7 +610,8 @@ function board(ctx) {
     const p = promptOf(a, x.prompt);
     const i = indexOf(x.pid);
     el.spot.innerHTML =
-      `<div class="sp-q">${tagHTML(x.prompt)}<span class="sp-ql">원래 문장</span><span class="sp-qt">${p ? rich(p.text) : ''}</span></div>` +
+      `<div class="sp-q">${tagHTML(x.prompt)}<span class="sp-ql">원래 문장</span><span class="sp-qw"><span class="sp-qt">${p ? rich(p.text) : ''}</span>` +
+      `${p && p.element ? `<span class="sp-el"><span class="sp-ell">평가 요소</span>${rich(p.element)}</span>` : ''}</span></div>` +
       '<div class="sp-body"><div class="sp-main">' +
       (keep.mode === 'pairs'
         ? `<div class="sp-pair${Math.max(len(x.first), len(x.text)) > 110 ? ' s' : ''}">` +

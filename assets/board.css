@@ -322,6 +322,9 @@ mark{background:linear-gradient(transparent 40%, #f5e3a4 40%);color:inherit;padd
 .sp-q .tag{flex:none}
 .sp-ql{flex:none;font-weight:700;font-size:2.2rem}
 .sp-qt{font-family:'Noto Serif KR',serif}
+.sp-qw{display:flex;flex-direction:column;min-width:0}
+.sp-el{margin-top:.4rem;font-family:Pretendard,sans-serif;font-size:2rem;color:var(--ink-soft)}
+.sp-ell{font-weight:700;margin-right:1rem}
 .sp-body{flex:1;min-height:0;display:flex;gap:3.6rem}
 .sp-main{
   flex:1;min-width:0;display:flex;flex-direction:column;justify-content:safe center;overflow:hidden;

@@ -1,12 +1,13 @@
 /**
  * 부산 판 E2E (명세 2·3·4): events/busan1019.json 의 활동으로 시험 연수를 만들어 확인한다
- *   1. 참가자(Zoom 옆 좁은 창 400px): rewrite 1차 고르기·쓰기(남은 글자, 점검 질문은 아래) → 2차는 1차 문장으로 채워 고쳐 쓰기
- *      → 제출 뒤 1차 | 2차 비교에 새 어절 표시. 360px 에서도 가로 스크롤이 없다
- *   2. 참가자(넓은 창): 점검 질문이 글상자 옆
- *   3. 현황판 rewrite1: 모아 보기 넘김(PageDown·↑), 이름은 기본으로 숨김(N), 문장별(0·1·2), 골라 띄우기(클릭·Enter, ← →, Esc)
- *   4. 현황판 rewrite2: 나란히 보기(두 번 다 낸 사람만, 새 어절 형광펜), V 로 모아 보기
- *   5. sentence 카드 100장: 모두 쪽으로 넘겨 볼 수 있고, 새 카드가 와도 보던 쪽이 그대로, ← → 는 화면 넘기기
- *   6. 실시간 구독(로컬 흉내 서버에서만): 참가자 기기는 진행 설정만, 현황판·관리자는 응답까지
+ *   1. 참가자(Zoom 옆 좁은 창 400px): ① 문장 틀 위에 강의 삽화, ‘성장하길 바란다’
+ *   2. 참가자(좁은 창): rewrite 과제 맥락(성취기준·GRASPS·해설·평가기준)과 문장별 평가 요소 → 고르기·쓰기(남은 글자,
+ *      점검 질문과 맥락은 아래) → 제출. 360px 에서 맥락을 모두 펼쳐도 가로 스크롤이 없다
+ *   3. 참가자(넓은 창): 점검 질문과 맥락이 글상자 옆
+ *   4. 현황판 rewrite1: 모아 보기 넘김(PageDown·↑), 이름은 기본으로 숨김(N), 문장별(0·1·2), 골라 띄우기(클릭·Enter, ← →, Esc)
+ *   5. rewrite 2차(부산 설정에는 없고 부품 기능만 시험): 1차 문장으로 채워 고쳐 쓰기, 나란히 보기, V
+ *   6. sentence 카드 100장: 모두 쪽으로 넘겨 볼 수 있고, 새 카드가 와도 보던 쪽이 그대로, ← → 는 화면 넘기기
+ *   7. 실시간 구독(로컬 흉내 서버에서만): 참가자 기기는 진행 설정만, 현황판·관리자는 응답까지
  * 시험 연수는 실패해도 afterAll 에서 지운다.
  */
 import { test, expect } from '@playwright/test';
@@ -17,6 +18,8 @@ test.describe.configure({ mode: 'serial' });
 
 let EV = null;
 let S = null;
+let EV2 = null; // 2차를 붙인 시험 연수(5번)
+let S2 = null;
 const FULL = { viewport: { width: 1920, height: 1080 }, locale: 'ko-KR' };
 const NARROW = { viewport: { width: 400, height: 820 }, locale: 'ko-KR' };
 const LIVE = { timeout: 30_000 };
@@ -26,15 +29,18 @@ test.beforeAll(async () => {
   test.setTimeout(120_000);
   EV = await createBusanTestEvent('bsn');
   S = seeder(EV);
+  EV2 = await createBusanTestEvent('bs2', { round2: true });
+  S2 = seeder(EV2);
   for (const a of EV.pub.activities) if (a.type === 'rewrite') for (const p of a.prompts) PROMPT[p.id] = p.text;
 });
 
 test.afterAll(async () => {
   if (EV) await deleteTestEvent(EV.id);
+  if (EV2) await deleteTestEvent(EV2.id);
 });
 
-async function joinAs(page, name) {
-  await page.goto(`./?e=${EV.id}`);
+async function joinAs(page, name, ev = EV) {
+  await page.goto(`./?e=${ev.id}`);
   await page.locator('#nick').fill(name);
   await page.locator('#joinBtn').click();
   await expect(page.locator('body')).toHaveAttribute('data-screen', 'menu');
@@ -53,15 +59,45 @@ async function seedMany(n, tag, activity, payloadOf) {
 const TEXT1 = '학생이 쟁점에 대한 두 입장을 근거와 함께 정리하고 자기 주장을 세움.';
 const TEXT2 = '학생이 쟁점에 대한 두 입장을 근거 세 개와 함께 정리하고 반론에 답하며 자기 주장을 세움.';
 
-test('참가자(좁은 창): rewrite 1차 → 2차는 1차 문장으로 채워 고쳐 쓰고, 제출 뒤 새 어절이 표시된다', async ({ browser }) => {
+test('참가자(좁은 창): ① 문장 틀 위에 강의 삽화가 있고 ‘성장하길 바란다’로 끝난다', async ({ browser }) => {
   const ctx = await browser.newContext(NARROW);
   const p = await ctx.newPage();
   const errors = [];
   p.on('pageerror', (e) => errors.push(e.message));
   try {
-    await joinAs(p, '시험 고쳐 쓰기');
+    await joinAs(p, '시험 성장');
     const items = p.locator('.menu [data-open]');
-    expect(await items.evaluateAll((els) => els.map((e) => e.dataset.open))).toEqual(['grow', 'ox', 'rewrite1', 'rewrite2', 'pledge']);
+    expect(await items.evaluateAll((els) => els.map((e) => e.dataset.open))).toEqual(['grow', 'ox', 'rewrite1', 'pledge']);
+    await expect(p.locator('.menu [data-open="grow"]')).toContainText('성장하길 바라시나요?');
+    await S.open('grow');
+    await p.locator('.menu [data-open="grow"]').click();
+    const img = p.locator('.act-img img');
+    await expect(img).toBeVisible(LIVE);
+    await expect(img).toHaveAttribute('src', 'assets/img/grow.jpg');
+    await expect.poll(() => img.evaluate((el) => el.complete && el.naturalWidth > 0)).toBe(true);
+    const ib = await img.boundingBox();
+    const fb = await p.locator('#pv .fill').boundingBox();
+    expect(ib.y + ib.height).toBeLessThanOrEqual(fb.y + 1); // 그림이 문장 위
+    await expect(p.locator('#pv .fill')).toContainText('사람으로 성장하길 바란다.');
+    await expect(p.locator('#pv .fill')).not.toContainText('자라길');
+    expect(await noSideScroll(p)).toBe(true);
+    // 적으면 미리보기 문장이 이어진다(내지는 않는다: 뒤의 카드 100장 시험이 이 연수의 grow 를 센다)
+    await p.locator('#blank').fill('스스로 질문하는');
+    await expect(p.locator('#pv .fill')).toHaveText('나는 학생이 스스로 질문하는 사람으로 성장하길 바란다.');
+    expect(errors).toEqual([]);
+  } finally {
+    await ctx.close();
+  }
+});
+
+test('참가자(좁은 창): rewrite 과제 맥락과 평가 요소를 보고 한 칸을 고쳐 쓴다', async ({ browser }) => {
+  const ctx = await browser.newContext(NARROW);
+  const p = await ctx.newPage();
+  const errors = [];
+  p.on('pageerror', (e) => errors.push(e.message));
+  const R = EV.pub.activities.find((a) => a.id === 'rewrite1');
+  try {
+    await joinAs(p, '시험 고쳐 쓰기');
     await expect(p.locator('body')).toHaveAttribute('data-live', 'live', { timeout: 20_000 });
 
     // 대기 → 관리자가 열면 새로고침 없이 문장 고르기
@@ -69,17 +105,47 @@ test('참가자(좁은 창): rewrite 1차 → 2차는 1차 문장으로 채워 �
     await expect(p.locator('[data-wait]')).toBeVisible();
     await S.open('rewrite1');
     await expect(p.locator('#rwPicks .rw-pick')).toHaveCount(2, LIVE);
-    await expect(p.locator('.rw-checks li')).toHaveCount(3);
-    expect(await noSideScroll(p)).toBe(true);
 
-    // 고르면 고른 문장이 위에, 글상자와 남은 글자 수
+    // 과제 맥락: 사례·과제·성취기준은 늘, GRASPS 는 펼쳐 두고, 해설·성취수준은 접어 둔다
+    const cx = p.locator('.rw-ctx');
+    await expect(cx.locator('.rw-ctx-case')).toHaveText(R.context.case);
+    await expect(cx.locator('.rw-std')).toContainText(R.context.standard.code);
+    await expect(cx.locator('.rw-std-t')).toHaveText(R.context.standard.text);
+    await expect(cx.locator('[data-sec="grasps"]')).toHaveAttribute('open', '');
+    await expect(cx.locator('.rw-grasps > div')).toHaveCount(6);
+    await expect(cx.locator('.rw-grasps dt b')).toHaveText(['G', 'R', 'A', 'S', 'P', 'S']);
+    await expect(cx.locator('[data-sec="guide"]')).not.toHaveAttribute('open', '');
+    await expect(cx.locator('[data-sec="levels"] summary')).toHaveText(R.context.levels.title);
+    await cx.locator('[data-sec="levels"] summary').click();
+    await expect(cx.locator('.rw-levels > div')).toHaveCount(R.context.levels.items.length);
+    await expect(cx.locator('.rw-levels dd').first()).toHaveText(R.context.levels.items[0].text);
+    // 문장마다 평가 요소, 맥락은 문장 고르기보다 위
+    await expect(p.locator('#rwPicks .rw-el')).toHaveText(R.prompts.map((x) => `평가 요소${x.element}`));
+    expect((await cx.boundingBox()).y).toBeLessThan((await p.locator('#rwPicks').boundingBox()).y);
+    await expect(p.locator('.rw-checks li')).toHaveCount(3);
+    // 모두 펼쳐도 가로 스크롤 없음(360px 포함)
+    await cx.locator('[data-sec="guide"] summary').click();
+    await expect(cx.locator('.rw-guide li')).toHaveCount(R.context.guide.items.length);
+    expect(await noSideScroll(p)).toBe(true);
+    await p.setViewportSize({ width: 360, height: 740 });
+    expect(await noSideScroll(p)).toBe(true);
+    await p.setViewportSize(NARROW.viewport);
+
+    // 고르면 고른 문장(평가 요소 포함)이 위에, 글상자와 남은 글자 수
     await p.locator('input[name="rwp"][value="b"]').click();
     await expect(p.locator('.rw-q.on .rw-qt')).toHaveText(PROMPT.b);
+    await expect(p.locator('.rw-q.on .rw-el')).toContainText(R.prompts[1].element);
     await expect(p.locator('#rwLeft')).toContainText('남은 글자 200자');
-    // 좁은 창: 점검 질문은 글상자 아래
+    // 좁은 창: 점검 질문은 글상자 아래, 그 아래 과제 맥락(접힌 채)
     const ta = await p.locator('#rwText').boundingBox();
     const ck = await p.locator('.rw-checks').boundingBox();
     expect(ck.y).toBeGreaterThanOrEqual(ta.y + ta.height - 1);
+    const cx2 = p.locator('.rw-side .rw-ctx');
+    await expect(cx2).toBeVisible();
+    expect((await cx2.boundingBox()).y).toBeGreaterThanOrEqual(ck.y + ck.height - 1);
+    await expect(cx2.locator('details[open]')).toHaveCount(0);
+    await cx2.locator('[data-sec="grasps"] summary').click();
+    await expect(cx2.locator('.rw-grasps > div')).toHaveCount(6);
 
     await p.locator('#rwText').fill('짧다');
     await p.locator('[data-act="submit"]').click();
@@ -89,31 +155,17 @@ test('참가자(좁은 창): rewrite 1차 → 2차는 1차 문장으로 채워 �
     await p.locator('[data-act="submit"]').click();
     await expect(p.locator('.done-mark')).toBeVisible();
     await expect(p.locator('.rw-mine')).toHaveText(TEXT1); // 서버처럼 줄 바꿈·앞뒤 공백 정리
+    await expect(p.locator('.rw-done .rw-el')).toContainText(R.prompts[1].element);
     const saved = await restGet(`lwb_responses?select=payload&event_id=eq.${EV.id}&activity_id=eq.rewrite1`);
     expect(saved.body.map((r) => r.payload)).toEqual([{ prompt: 'b', text: TEXT1 }]);
 
-    // 2차: 1차에서 고른 문장과 내 1차 문장이 위에, 글상자는 1차 문장으로 채워져 있다
-    await p.locator('[data-act="menu"]').click();
-    await expect(p.locator('.menu [data-open="rewrite1"] .st')).toHaveText('완료');
-    await S.open('rewrite2');
-    await p.locator('.menu [data-open="rewrite2"]').click();
-    await expect(p.locator('.rw-ref .rw-qt')).toHaveText(PROMPT.b, LIVE);
-    await expect(p.locator('.rw-ref .rw-first')).toHaveText(TEXT1);
-    await expect(p.locator('#rwPicks')).toHaveCount(0);
-    await expect(p.locator('#rwText')).toHaveValue(TEXT1);
-    await p.locator('#rwText').fill(TEXT2);
-    await p.locator('[data-act="submit"]').click();
-    await expect(p.locator('.rw-cmp .c1')).toContainText(TEXT1);
-    const marks = await p.locator('.rw-cmp .c2 mark').allTextContents();
-    expect(marks.join(' ')).toContain('세 개와');
-    expect(marks.join(' ')).toContain('반론에 답하며');
-    expect(marks.join(' ')).not.toContain('학생이');
-
-    // 360px 에서도 가로 스크롤 없음(결과·입력 화면)
+    // 360px 에서도 가로 스크롤 없음(결과·입력 화면, 맥락을 펼친 채)
     await p.setViewportSize({ width: 360, height: 740 });
     expect(await noSideScroll(p)).toBe(true);
     await p.locator('[data-act="edit"]').click();
     await expect(p.locator('#rwText')).toBeVisible();
+    await p.locator('.rw-side [data-sec="levels"] summary').click();
+    await expect(p.locator('.rw-side .rw-levels > div')).toHaveCount(R.context.levels.items.length);
     expect(await noSideScroll(p)).toBe(true);
     expect(errors).toEqual([]);
   } finally {
@@ -121,7 +173,7 @@ test('참가자(좁은 창): rewrite 1차 → 2차는 1차 문장으로 채워 �
   }
 });
 
-test('참가자(넓은 창): 점검 질문이 글상자 옆에 있다', async ({ browser }) => {
+test('참가자(넓은 창): 점검 질문과 과제 맥락이 글상자 옆에 있다', async ({ browser }) => {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 860 }, locale: 'ko-KR' });
   const p = await ctx.newPage();
   try {
@@ -132,6 +184,9 @@ test('참가자(넓은 창): 점검 질문이 글상자 옆에 있다', async ({
     const ck = await p.locator('.rw-checks').boundingBox();
     expect(ck.x).toBeGreaterThanOrEqual(ta.x + ta.width - 1);
     expect(Math.abs(ck.y - ta.y)).toBeLessThan(120);
+    const cx = await p.locator('.rw-side .rw-ctx').boundingBox();
+    expect(cx.x).toBeGreaterThanOrEqual(ta.x + ta.width - 1);
+    expect(cx.y).toBeGreaterThanOrEqual(ck.y + ck.height - 1);
   } finally {
     await ctx.close();
   }
@@ -217,6 +272,7 @@ test('현황판 rewrite1: 넘김 · 이름 숨김(N) · 문장별(0·1·2) · �
     await expect(spot).toBeVisible();
     await expect(spot.locator('.sp-text')).toHaveText(cardText);
     await expect(spot.locator('.sp-qt')).toHaveText(PROMPT[cardTag.toLowerCase()]);
+    await expect(spot.locator('.sp-el')).toContainText('평가 요소');
     await expect(spot.locator('.sp-checks li')).toHaveCount(3);
     await expect(spot.locator('.sp-nm')).toHaveCount(0);
     await expect(spot.locator('.sp-n')).toHaveText(`1 / ${total}`);
@@ -266,35 +322,74 @@ test('현황판 rewrite1: 넘김 · 이름 숨김(N) · 문장별(0·1·2) · �
   }
 });
 
-test('현황판 rewrite2: 나란히 보기(두 번 다 낸 사람만, 새 어절 형광펜) · V 로 모아 보기', async ({ browser }) => {
-  // 벽에 낸 40명 가운데 앞의 10명이 2차를 낸다(1차 글 + 새 말). 2차만 낸 사람 하나는 짝이 없다
-  const first = (await restGet(`lwb_responses?select=participant_id,payload&event_id=eq.${EV.id}&activity_id=eq.rewrite1&order=created_at.asc`)).body;
-  const ten = first.slice(1, 11);
-  for (const r of ten) {
-    await S.submit(r.participant_id, 'rewrite2', { prompt: r.payload.prompt, text: `${r.payload.text} 반론에 답함.` });
+test('rewrite 2차(부품 기능, 부산 설정에는 없음): 1차 문장으로 채워 고쳐 쓰고, 현황판은 나란히 보기 · V', async ({ browser }) => {
+  test.setTimeout(150_000);
+  const errors = [];
+  const pctx = await browser.newContext(NARROW);
+  const p = await pctx.newPage();
+  p.on('pageerror', (e) => errors.push(e.message));
+  try {
+    await joinAs(p, '시험 2차 참가자', EV2);
+    const items = p.locator('.menu [data-open]');
+    expect(await items.evaluateAll((els) => els.map((e) => e.dataset.open))).toEqual(['grow', 'ox', 'rewrite1', 'rewrite2', 'pledge']);
+    await S2.open('rewrite1');
+    await p.locator('.menu [data-open="rewrite1"]').click();
+    await expect(p.locator('#rwPicks .rw-pick')).toHaveCount(2, LIVE);
+    await p.locator('input[name="rwp"][value="b"]').click();
+    await p.locator('#rwText').fill(TEXT1);
+    await p.locator('[data-act="submit"]').click();
+    await expect(p.locator('.done-mark')).toBeVisible();
+
+    // 2차: 1차에서 고른 문장과 내 1차 문장이 위에, 글상자는 1차 문장으로 채워져 있다
+    await p.locator('[data-act="menu"]').click();
+    await expect(p.locator('.menu [data-open="rewrite1"] .st')).toHaveText('완료');
+    await S2.open('rewrite2');
+    await p.locator('.menu [data-open="rewrite2"]').click();
+    await expect(p.locator('.rw-ref .rw-qt')).toHaveText(PROMPT.b, LIVE);
+    await expect(p.locator('.rw-ref .rw-first')).toHaveText(TEXT1);
+    await expect(p.locator('#rwPicks')).toHaveCount(0);
+    await expect(p.locator('#rwText')).toHaveValue(TEXT1);
+    await expect(p.locator('.rw-side .rw-ctx')).toBeVisible();
+    await p.locator('#rwText').fill(TEXT2);
+    await p.locator('[data-act="submit"]').click();
+    await expect(p.locator('.rw-cmp .c1')).toContainText(TEXT1);
+    const marks = await p.locator('.rw-cmp .c2 mark').allTextContents();
+    expect(marks.join(' ')).toContain('세 개와');
+    expect(marks.join(' ')).toContain('반론에 답하며');
+    expect(marks.join(' ')).not.toContain('학생이');
+    await p.setViewportSize({ width: 360, height: 740 });
+    expect(await noSideScroll(p)).toBe(true);
+  } finally {
+    await pctx.close();
   }
-  const only2 = await S.join('시험 2차만');
-  await S.submit(only2, 'rewrite2', { prompt: 'a', text: '2차만 낸 사람의 문장입니다.' });
+
+  // 현황판: 10명은 두 번 다 내고, 1차만 낸 사람 하나, 2차만 낸 사람 하나
+  const pids = [];
+  for (let i = 0; i < 11; i++) pids.push(await S2.join(`시험 짝 ${String(i + 1).padStart(2, '0')}`));
+  const t1 = (i) => `${i + 1}번 1차: 학생이 예상 독자의 질문을 적고 답함.`;
+  for (let i = 0; i < 11; i++) await S2.submit(pids[i], 'rewrite1', { prompt: i % 2 ? 'b' : 'a', text: t1(i) });
+  for (let i = 0; i < 10; i++) await S2.submit(pids[i], 'rewrite2', { prompt: i % 2 ? 'b' : 'a', text: `${t1(i)} 반론에 답함.` });
+  const only2 = await S2.join('시험 2차만');
+  await S2.submit(only2, 'rewrite2', { prompt: 'a', text: '2차만 낸 사람의 문장입니다.' });
 
   const ctx = await browser.newContext(FULL);
   const page = await ctx.newPage();
-  const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   try {
-    await page.goto(`./board.html?e=${EV.id}&v=4`);
+    await page.goto(`./board.html?e=${EV2.id}&v=4`);
     const rw = page.locator('.rw');
     await expect(rw).toHaveAttribute('data-mode', 'pairs'); // 2차는 나란히 보기부터
-    await expect(page.locator('.vt[data-mode="pairs"] .vn')).toHaveText('11'); // 10명 + 1번 테스트의 참가자
+    await expect(page.locator('.vt[data-mode="pairs"] .vn')).toHaveText('11'); // 10명 + 위의 참가자
     await expect(page.locator('.vt[data-mode="wall"] .vn')).toHaveText('12');
     await expect(page.locator('.rw-pg .pg')).toContainText('11쌍');
     const pair = page.locator('.rwpair').nth(1);
-    await expect(pair.locator('.p1 .tx')).toHaveText(ten[0].payload.text);
+    await expect(pair.locator('.p1 .tx')).toHaveText(t1(0));
     await expect(pair.locator('.p2 mark')).toHaveText('반론에 답함.');
     await expect(page.locator('.rwpair', { hasText: '2차만 낸 사람' })).toHaveCount(0);
     await expect(page.locator('.rwpair .nm')).toHaveCount(0);
 
     await pair.click();
-    await expect(page.locator('.rw-spot .sp-1 .tx')).toHaveText(ten[0].payload.text);
+    await expect(page.locator('.rw-spot .sp-1 .tx')).toHaveText(t1(0));
     await expect(page.locator('.rw-spot .sp-2 mark')).toHaveText('반론에 답함.');
     await page.keyboard.press('Escape');
 
@@ -302,7 +397,6 @@ test('현황판 rewrite2: 나란히 보기(두 번 다 낸 사람만, 새 어절
     await expect(rw).toHaveAttribute('data-mode', 'wall');
     const pg = page.locator('.rw-pg .pg');
     await expect(pg).toContainText('12장');
-    // 2차만 낸 사람은 가장 늦게 냈으니 끝쪽에 있다
     const pages = Number(await pg.getAttribute('data-pages'));
     for (let i = 1; i < pages; i++) await page.keyboard.press('PageDown');
     await expect(page.locator('.rwcard', { hasText: '2차만 낸 사람' })).toHaveCount(1);

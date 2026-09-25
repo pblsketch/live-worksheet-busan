@@ -78,29 +78,47 @@ node tools/register-event.mjs <id> --dry-run   # 검사만 (DB에 접속하지 �
 | 칸 | 필수 | 형식 |
 |---|---|---|
 | `templates` | 필수 | `[{ "id", "label", "before", "after", "placeholder" }]` 1개 이상. 틀이 둘 이상이면 `label` 필수. `before`(앞말)와 `after`(뒷말) 중 하나는 있어야 한다. `placeholder`(선택, 60자 이내)는 글상자 안내 문구(예: `"예: 스스로 질문하는"`), 없으면 "빈칸에 들어갈 말" |
+| `image` | 선택 | `{ "src", "alt" }` 쓰는 화면 맨 위에 두는 그림(강의 슬라이드의 삽화 등). `src`는 저장소 안의 상대 경로(예: `assets/img/grow.jpg`, 앞에 `/`나 `..` 없이) 또는 `https://` 주소. `alt`(선택, 200자 이내)는 그림 설명 |
 
 ### `rewrite` (수행 특성 문장 고쳐 쓰기)
 
-참가자가 문장 하나를 골라 고쳐 쓴다. 1차·2차를 활동 두 개로 두고, 현황판이 참가자별로 짝지어 나란히 보여 준다.
+참가자가 문장 하나를 골라 고쳐 쓴다. 한 번만 쓸 수도 있고(`round`를 비운다, busan1019), 1차·2차를 활동 두 개로 두면 현황판이 참가자별로 짝지어 나란히 보여 준다.
 
 | 칸 | 필수 | 형식 |
 |---|---|---|
-| `round` | 선택 | `1` 또는 `2`. 없으면 1 |
+| `round` | 선택 | `1` 또는 `2`. 없으면 1(관리자 카드에 차수를 붙이지 않는다) |
 | `pairOf` | 2차 | 2차일 때 짝이 되는 1차 활동 id(같은 연수의 `rewrite`, round 1). 문장(`prompts`) id가 1차와 같아야 한다. 없으면 앞쪽에서 가장 가까운 1차와 짝짓고 경고한다 |
 | `level` | 선택 | 고쳐 쓸 수준 이름(20자 이내, 예: `"잘함"`). 참가자 화면에 "‘잘함’ 수준으로 고쳐 쓰기"로 나온다 |
-| `prompts` | 필수 | `[{ "id", "text" }]` 1개 이상. 참가자가 하나를 고른다. `id`는 `^[A-Za-z0-9_-]{1,40}$`, 화면에는 대문자로 보인다(`a` → A) |
+| `prompts` | 필수 | `[{ "id", "text", "element" }]` 1개 이상. 참가자가 하나를 고른다. `id`는 `^[A-Za-z0-9_-]{1,40}$`, 화면에는 대문자로 보인다(`a` → A). `element`(선택)는 그 문장이 들어 있던 채점기준표 줄의 평가 요소로, 문장 카드 아래와 현황판 골라 띄우기에 작게 나온다 |
 | `checks` | 선택 | 점검 질문 문자열 배열. 참가자 글상자 옆(좁은 화면에서는 아래)과 현황판 골라 띄우기 옆에 늘 보인다 |
 | `maxLength` | 선택 | 글자 수 한도, 정수 5~300. 없으면 200 |
+| `context` | 선택 | 고쳐 쓸 칸이 들어 있던 과제의 맥락(아래 표). 문장 고르기 위에 보이고, 쓰는 화면에서는 점검 질문 아래(넓은 창에서는 글상자 옆)에 접힌 채로 있다 |
+
+`context` 칸(모두 선택, 없는 칸은 그리지 않는다):
+
+| 칸 | 형식 |
+|---|---|
+| `case` · `task` | 문자열. 사례 이름(예: `"슬기로운 환경 시민 프로젝트 · 2022 고1 국어 · 17차시"`)과 과제 이름. 늘 보인다 |
+| `standard` | `{ "code", "text" }` 성취기준. `text` 필수. 늘 보인다 |
+| `grasps` | `[{ "key", "name", "text" }]` 1개 이상. `key`는 4자 이내(예: `"G"`). 펼침 칸 '수행과제 · GRASPS'(문장 고르기 화면에서는 펼쳐 둔다) |
+| `guide` | `{ "title", "lead", "items": [문자열…], "source" }` `items` 1개 이상. 펼침 칸(제목 없으면 '성취기준 해설') |
+| `levels` | `{ "title", "items": [{ "level", "text" }…], "source" }` `level`은 4자 이내(예: `"A"`, `"상"`). 펼침 칸 이름은 `title`(예: 2015 개정 `"평가기준 상·중·하"`), 없으면 '성취수준 A~E' |
+| `note` | 문자열. 맥락 맨 아래 작은 글 |
 
 - 2차 참가자 화면: 1차에서 고른 문장과 내 1차 문장을 위에 보이고, 글상자를 1차 문장으로 채워 둔다. 1차를 내지 않았으면 문장 고르기부터 한다.
 - 현황판: 모아 보기(카드 벽, 문장별 나눠 보기 `0`·`1`·`2`, 넘김 `↑`·`↓`·`PageUp`·`PageDown`) · 골라 띄우기(카드를 누르거나 `Enter`로 고르고 방향키로 옮긴 뒤 `Enter`, `Esc`로 돌아감) · 나란히 보기(짝이 있는 활동, `V`). 이름은 기본으로 숨긴다(`N`).
 
 ```json
-{ "id": "rewrite1", "type": "rewrite", "title": "수행 특성 고쳐 쓰기 · 1차", "round": 1, "level": "잘함",
-  "prompts": [{ "id": "a", "text": "…" }, { "id": "b", "text": "…" }],
+{ "id": "rewrite1", "type": "rewrite", "title": "수행 특성 고쳐 쓰기", "level": "잘함",
+  "context": { "case": "…", "task": "…", "standard": { "code": "[10국03-02]", "text": "…" },
+               "grasps": [{ "key": "G", "name": "목표", "text": "…" }, …],
+               "guide": { "title": "…", "items": ["…"], "source": "…" },
+               "levels": { "title": "평가기준 상·중·하", "items": [{ "level": "상", "text": "…" }, …], "source": "…" } },
+  "prompts": [{ "id": "a", "text": "…", "element": "…" }, { "id": "b", "text": "…", "element": "…" }],
   "checks": ["…", "…", "…"], "maxLength": 200 }
-{ "id": "rewrite2", "type": "rewrite", "title": "수행 특성 고쳐 쓰기 · 2차", "round": 2, "pairOf": "rewrite1", … }
 ```
+
+1차·2차로 나눌 때는 1차에 `"round": 1`, 2차를 따로 둔다: `{ "id": "rewrite2", "type": "rewrite", "title": "… · 2차", "round": 2, "pairOf": "rewrite1", … }`
 
 ### 자료 `materials`
 
@@ -160,7 +178,7 @@ node tools/register-event.mjs <id> --dry-run   # 검사만 (DB에 접속하지 �
 
 ## 완전한 예
 
-`events/sample.json`(저장소에 있는 개발용 샘플)이 ox·stage_check·sentence 를 쓰는 완전한 예다. `rewrite`와 `placeholder`는 `events/busan1019.json`을 본다. 짝이 되는 비밀 파일은 저장소에 없다(테스트가 실행할 때 만든다). 형식은 아래와 같다.
+`events/sample.json`(저장소에 있는 개발용 샘플)이 ox·stage_check·sentence 를 쓰는 완전한 예다. `rewrite`(과제 맥락·평가 요소 포함)와 `placeholder`·`image`는 `events/busan1019.json`을 본다. 짝이 되는 비밀 파일은 저장소에 없다(테스트가 실행할 때 만든다). 형식은 아래와 같다.
 
 `events/sample.json`
 

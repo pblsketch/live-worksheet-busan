@@ -200,6 +200,9 @@ describe('rewrite 부품', () => {
     }
     assert.equal(m.summary(R1), '1차 · 문장 2개 가운데 하나');
     assert.equal(m.summary(R2), '2차 · 문장 2개 가운데 하나');
+    // round 를 비우면(1차·2차로 나누지 않는 연수) 차수를 붙이지 않는다
+    const { round: _r, ...solo } = R1;
+    assert.equal(m.summary(solo), '문장 2개 가운데 하나');
   });
 
   it('관리자 카드: 문장별 수와 비율, 1·2차 모두 낸 수, 최근 제출(이스케이프)', () => {
@@ -227,5 +230,73 @@ describe('rewrite 부품', () => {
       rowsOf: () => [{ participant_id: 'p1', payload: { prompt: 'a', text: '학생이 잘 적음' } }]
     }, row);
     assert.match(html, /<mark>질문을 미리<\/mark>/);
+  });
+});
+
+describe('rewrite 과제 맥락 (context · element)', () => {
+  const CTX = {
+    case: '슬기로운 환경 시민 프로젝트 · 2022 고1 국어',
+    task: '개인 과제 · 학교 환경 정책 건의문',
+    standard: { code: '[10공국1-03-01]', text: '사회적 쟁점에 대한 자신의 견해를 정교하게 표현하는 글을 쓴다.' },
+    grasps: [{ key: 'G', name: '목표', text: '정책을 제안한다' }, { key: 'A', name: '청중', text: '행정실장님 <script>' }],
+    guide: { title: '성취기준 해설', lead: '해설이 없어 옮깁니다.', items: ['고려 사항 하나'], source: '별책 5' },
+    levels: { items: [{ level: 'A', text: '정교하게 쓸 수 있다.' }, { level: 'E', text: '견해를 표현하는 글을 쓴다.' }], source: '평가원' },
+    note: '2015 개정으로 한 수업'
+  };
+  // 형식 검사용: 화면 이스케이프 시험에 쓴 <script> 는 설정 검사에서 막히므로 뺀다
+  const CLEAN = { ...clone(CTX), grasps: [{ key: 'G', name: '목표', text: '정책을 제안한다' }] };
+  const withCtx = (patch = {}) => ({ ...clone(R1), context: { ...clone(CLEAN), ...patch } });
+
+  it('맥락 HTML: 성취기준은 늘 보이고, GRASPS·해설·성취수준은 펼침 칸. 설정 문구도 이스케이프', async () => {
+    const { contextHTML } = await import('../../assets/activities/rewrite.js');
+    const html = contextHTML(CTX, { grasps: true });
+    assert.match(html, /<b>\[10공국1-03-01\]<\/b>/);
+    assert.match(html, /<details class="rw-more" data-sec="grasps" open><summary>수행과제 · GRASPS<\/summary>/);
+    assert.match(html, /<details class="rw-more" data-sec="guide"><summary>성취기준 해설<\/summary>/);
+    assert.match(html, /<details class="rw-more" data-sec="levels"><summary>성취수준 A~E<\/summary>/);
+    assert.match(html, /<dt><b>A<\/b>청중<\/dt><dd>행정실장님 &lt;script&gt;<\/dd>/);
+    assert.doesNotMatch(html, /<script>/);
+    assert.match(html, /2015 개정으로 한 수업/);
+    // 칸 이름을 적으면 그것으로(2015 개정 평가기준 상·중·하)
+    const t15 = contextHTML({ ...CTX, levels: { title: '평가기준 상·중·하', items: [{ level: '상', text: '가' }, { level: '하', text: '나' }] } });
+    assert.match(t15, /<summary>평가기준 상·중·하<\/summary>/);
+    assert.equal(contextHTML(undefined), '');
+    assert.equal(contextHTML('맥락'), '');
+    // 없는 칸은 그리지 않는다
+    const bare = contextHTML({ case: '사례만' });
+    assert.match(bare, /사례만/);
+    assert.doesNotMatch(bare, /details|rw-std/);
+  });
+
+  it('평가 요소 HTML: 있을 때만', async () => {
+    const { elementHTML } = await import('../../assets/activities/rewrite.js');
+    assert.equal(elementHTML({ id: 'a', text: '문장', element: '예상 독자를 고려했는가?' }),
+      '<span class="rw-el"><span class="rw-el-l">평가 요소</span>예상 독자를 고려했는가?</span>');
+    assert.equal(elementHTML({ id: 'a', text: '문장' }), '');
+    assert.equal(elementHTML(null), '');
+  });
+
+  it('형식 검사: 맥락과 평가 요소는 통과, 틀린 모양은 막는다', () => {
+    const ok = validatePublic('busan-x', pub([withCtx()]));
+    assert.deepEqual(ok.errors, []);
+    assert.deepEqual(ok.warnings, []);
+    const e = (a) => validatePublic('busan-x', pub([a])).errors;
+    const has = (a, re) => assert.ok(e(a).some((x) => re.test(x)), `${JSON.stringify(a.context || a.prompts)} → ${JSON.stringify(e(a))}`);
+    has({ ...clone(R1), context: '맥락' }, /context: 객체여야/);
+    has(withCtx({ case: 3 }), /context\.case: 문자열/);
+    has(withCtx({ standard: { code: '[x]' } }), /context\.standard: /);
+    has(withCtx({ grasps: [] }), /context\.grasps: /);
+    has(withCtx({ grasps: [{ key: 'GOAL!', text: '목표' }] }), /grasps\[0\]\.key: 4자 이내/);
+    has(withCtx({ grasps: [{ key: 'G' }] }), /grasps\[0\]: 내용\(text\)/);
+    has(withCtx({ guide: { items: [] } }), /context\.guide: /);
+    has(withCtx({ guide: { items: ['가'], source: 1 } }), /guide\.source: 문자열/);
+    has(withCtx({ levels: { items: [{ level: 'A' }] } }), /levels\.items\[0\]: /);
+    has(withCtx({ levels: { items: [{ level: '', text: '가' }] } }), /levels\.items\[0\]: /);
+    has(withCtx({ note: 1 }), /context\.note: 문자열/);
+    has(withCtx({ levels: { title: 3, items: [{ level: '상', text: '가' }] } }), /levels\.title: 문자열/);
+    has({ ...clone(R1), prompts: [{ id: 'a', text: '문장', element: ' ' }] }, /prompts\[0\]\.element: /);
+    has(withCtx({ case: '<i>기울임</i>' }), /허용하지 않는 HTML 태그 <i>/);
+    const w = validatePublic('busan-x', pub([withCtx({ extra: 1 })])).warnings;
+    assert.ok(w.some((x) => /context: 알 수 없는 칸 "extra"/.test(x)));
   });
 });

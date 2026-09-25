@@ -3,7 +3,7 @@
  * 부하 시험 (명세 6) — 실제 DB에 요청을 보낸다.
  * --confirm-remote 가 없으면 아무 요청도 보내지 않고(.env.local 도 읽지 않고) 사용법만 출력한다.
  *
- *   node tools/load-test.mjs --confirm-remote [--n 100] [--spread 2000] [--only rewrite1,rewrite2]
+ *   node tools/load-test.mjs --confirm-remote [--n 100] [--spread 2000] [--only rewrite1,pledge]
  *
  * 하는 일
  *   1. 시험 연수 t-load-<시각>을 만든다: events/busan1019.json 과 같은 활동, 목록 노출 안 함, 암호는 새로 만듦.

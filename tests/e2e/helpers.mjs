@@ -56,17 +56,28 @@ export async function createTestEvent(tag = 'e2e') {
 }
 
 /**
- * events/busan1019.json 의 활동 다섯(grow · ox · rewrite1 · rewrite2 · pledge)으로 시험 연수를 만든다.
+ * events/busan1019.json 의 활동 넷(grow · ox · rewrite1 · pledge)으로 시험 연수를 만든다.
  * 비밀 파일은 읽지 않고 시험용 정답(모두 O)과 새 암호로 만든다.
+ * round2: true 면 rewrite1 뒤에 짝이 되는 2차(rewrite2)를 붙인다. 부산 설정에서는 2차를 뺐지만(9/25)
+ *         rewrite 부품의 2차·나란히 보기 기능은 남아 있어 그것을 시험할 때 쓴다.
  * @returns {Promise<{ id: string, passcode: string, title: string, pub: object }>}
  */
-export async function createBusanTestEvent(tag = 'bsn') {
+export async function createBusanTestEvent(tag = 'bsn', { round2 = false } = {}) {
   const id = testId(tag);
   const passcode = testPasscode();
   const dir = tmpDir();
   const pub = JSON.parse(readFileSync(join(ROOT, 'events', 'busan1019.json'), 'utf8'));
   pub.id = id;
   pub.listed = false;
+  if (round2) {
+    const i = pub.activities.findIndex((a) => a.id === 'rewrite1');
+    const r1 = pub.activities[i];
+    r1.round = 1;
+    r1.title = `${r1.title} · 1차`;
+    pub.activities.splice(i + 1, 0, {
+      ...JSON.parse(JSON.stringify(r1)), id: 'rewrite2', title: r1.title.replace('1차', '2차'), round: 2, pairOf: 'rewrite1'
+    });
+  }
   const reveal = {};
   for (const a of pub.activities) if (a.type === 'ox') reveal[a.id] = { answers: a.questions.map(() => 'O') };
   try {

@@ -106,7 +106,7 @@ describe('자동 익명화', () => {
     const jobs = await runSql(`select schedule, command, active from cron.job where jobname = 'lwb_anonymize'`);
     assert.equal(jobs.length, 1);
     assert.equal(jobs[0].active, true);
-    assert.match(jobs[0].schedule, /^\d+ \d+ \* \* \*$/);
+    assert.equal(jobs[0].schedule, '27 18 * * *'); // 반곡고 lw_anonymize(18:17)와 겹치지 않게
     assert.match(jobs[0].command, /lwb_anonymize_expired\(\)/);
   });
 });

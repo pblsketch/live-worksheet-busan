@@ -1,11 +1,12 @@
 /**
  * 스키마 검사 (spec 4.2, 4.4, 7-B7)
- *   - 적용 전 기준 목록(supabase/baseline-snapshot.json)과 비교해 lwb_ 아닌 객체가 생기거나 사라지지 않았다
+ *   - 적용 전 기준 목록(supabase/baseline-snapshot.json)과 비교해 lwb_ 아닌 객체가 생기거나 사라지지 않았고,
+ *     lwb_ 아닌 표·함수·예약 작업(반곡고 lw_)은 정의까지 그대로다(기준 파일이 없으면 이 검사는 건너뛴다)
  *   - 표·서버 함수·실시간 발행·RLS·권한이 계약대로다
  */
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ROOT, runSql } from './helpers.mjs';
 import { takeSnapshot, compareSnapshot } from '../../tools/lib/snapshot.mjs';
@@ -17,21 +18,26 @@ const PUBLIC_RPC = ['lwb_get_event', 'lwb_join', 'lwb_restore', 'lwb_submit', 'l
 describe('스키마', () => {
   let snap;
 
-  it('기준 목록 대비 lwb_ 아닌 객체의 추가·삭제가 없다', async () => {
+  it('기준 목록 대비 lwb_ 아닌 객체의 추가·삭제가 없고, 반곡고 lw_ 정의가 그대로다', async (t) => {
     snap = await takeSnapshot();
-    const baseline = JSON.parse(readFileSync(join(ROOT, 'supabase', 'baseline-snapshot.json'), 'utf8'));
-    const cmp = compareSnapshot(baseline, snap);
+    const file = join(ROOT, 'supabase', 'baseline-snapshot.json');
+    if (!existsSync(file)) { t.skip('기준 파일이 없음(npm run snapshot -- --write supabase/baseline-snapshot.json)'); return; }
+    const cmp = compareSnapshot(JSON.parse(readFileSync(file, 'utf8')), snap);
+    assert.equal(cmp.legacy, false, '기준 파일이 옛 형식');
     assert.deepEqual(cmp.badAdded, []);
     assert.deepEqual(cmp.badRemoved, []);
+    assert.deepEqual(cmp.changed, []);
   });
 
-  it('표 다섯 개, 공개 서버 함수, 발행, 예약 작업이 있다', () => {
-    for (const t of TABLES) assert.ok(snap.includes(`table:${t}`), t);
-    for (const f of PUBLIC_RPC) assert.ok(snap.some((x) => x.startsWith(`function:${f}(`)), f);
+  it('표 다섯 개, 공개 서버 함수, 발행, 예약 작업이 있다', async () => {
+    snap = snap || await takeSnapshot();
+    const objs = snap.objects;
+    for (const t of TABLES) assert.ok(objs.includes(`table:${t}`), t);
+    for (const f of PUBLIC_RPC) assert.ok(objs.some((x) => x.startsWith(`function:${f}(`)), f);
     for (const t of ['lwb_participants', 'lwb_responses', 'lwb_settings']) {
-      assert.ok(snap.includes(`publication:supabase_realtime:${t}`), `실시간 ${t}`);
+      assert.ok(objs.includes(`publication:supabase_realtime:${t}`), `실시간 ${t}`);
     }
-    assert.ok(snap.includes('cron:lwb_anonymize'));
+    assert.ok(objs.includes('cron:lwb_anonymize'));
   });
 
   it('RLS 가 켜져 있고, 실시간 표는 replica identity full 이다', async () => {

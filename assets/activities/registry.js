@@ -10,9 +10,12 @@
  *   summary(a)      메뉴·관리자 카드에 쓰는 한 줄(예: '3문항')
  *   participant(ctx) → { update(ctx), destroy() }
  *                   참가자 화면. ctx.root 안에 그린다. 데이터가 바뀌면 update(ctx)가 불린다.
- *                   ctx: { root, event, activity, index, isOpen, reveal, me, mine, rows, names,
+ *                   ctx: { root, event, activity, index, isOpen, reveal, me, mine, mineOf(id), rows, names,
  *                          liveBadge, submit(payload)→Promise<boolean>, draft{load,save,clear},
  *                          need(kinds), toast(msg), goMenu() }
+ *                   need(['responses'…]) 로 다른 사람 결과가 필요하다고 알리면, 참가자 기기는 이 활동의 응답만
+ *                   제출 직후 한 번, 그 뒤 15~25초마다 다시 불러온다(실시간 구독은 진행 설정만).
+ *                   mineOf(id): 이 참가자가 다른 활동에 낸 payload(없으면 null)
  *   adminCard(ctx)  관리자 활동 카드에 붙는 한 줄 HTML(없으면 '')
  *   adminResponse(ctx, row)  '지금 들어온 응답'에 보일 원문 HTML
  *   adminCell(ctx, row)      참가자 표 칸(제출했을 때). 기본 '✓'

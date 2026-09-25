@@ -309,7 +309,7 @@ async function boot() {
     return;
   }
   if (!B.live) {
-    B.live = new Live(B.eventId);
+    B.live = new Live(B.eventId, { role: 'board' });
     B.live.on(onLive);
   }
   let r;

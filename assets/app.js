@@ -67,6 +67,8 @@ function setScreen(name, extra = {}) {
     S.view = null;
   }
   S.screen = { name, ...extra };
+  // 관리자 화면만 응답·참가자 변경을 실시간으로 받는다(참가자 화면은 진행 설정만)
+  if (S.live) S.live.setRole(name === 'admin' ? 'admin' : 'participant');
   document.body.classList.toggle('adm-mode', name === 'admin');
   document.body.dataset.screen = name;
   window.scrollTo(0, 0);
@@ -388,7 +390,8 @@ function ctxFor(a, root) {
     liveBadge: liveBadge(),
     submit: (payload) => submitFor(a, payload),
     draft: draftStore(S.eventId, a.id),
-    need: (kinds) => S.live.need(kinds),
+    need: (kinds) => S.live.need(kinds, { activity: a.id }),
+    mineOf: (id) => S.mine[id] || null,
     toast,
     goMenu: showMenu
   };
@@ -411,6 +414,7 @@ async function submitFor(a, payload) {
     return false;
   }
   S.mine[a.id] = payload;
+  S.live.submitted();
   return true;
 }
 

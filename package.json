@@ -13,7 +13,8 @@
     "register": "node tools/register-event.mjs",
     "test:unit": "node --test \"tests/unit/*.test.mjs\"",
     "test:db": "node --test --test-concurrency=1 \"tests/db/*.test.mjs\"",
-    "test:e2e": "playwright test -c playwright.config.mjs"
+    "test:e2e": "playwright test -c playwright.config.mjs",
+    "load-test": "node tools/load-test.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.61.1",

@@ -1,8 +1,8 @@
 {
-  "name": "live-worksheet",
+  "name": "live-worksheet-busan",
   "version": "1.0.0",
   "private": true,
-  "description": "여러 연수에 다시 쓰는 라이브 활동지 (정적 사이트 + Supabase)",
+  "description": "라이브 활동지 부산 판 (정적 사이트 + Supabase, lwb_ 이름공간)",
   "type": "module",
   "engines": {
     "node": ">=22"

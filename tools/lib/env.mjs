@@ -14,7 +14,7 @@ import { dirname, join, resolve } from 'node:path';
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 /** 참가자·현황판 주소의 기준 (GitHub Pages) */
-export const SITE_URL = 'https://pblsketch.github.io/live-worksheet/';
+export const SITE_URL = 'https://pblsketch.github.io/live-worksheet-busan/';
 
 let cache = null;
 
@@ -121,7 +121,7 @@ export async function rpc(fn, args = {}) {
   return { status: r.status, body };
 }
 
-/** 공개 표를 publishable key로 읽는다. path 예: 'lw_events?select=id&id=eq.x' */
+/** 공개 표를 publishable key로 읽는다. path 예: 'lwb_events?select=id&id=eq.x' */
 export async function restGet(path) {
   const { url, headers } = restBase();
   const r = await fetch(`${url}/rest/v1/${path}`, { headers });

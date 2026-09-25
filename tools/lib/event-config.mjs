@@ -13,7 +13,7 @@ export const PART_ID_RE = /^[A-Za-z0-9_-]{1,40}$/;       // 항목·학습목표
 export const PASSCODE_RE = /^[A-Za-z0-9]{8,16}$/;
 export const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-/** 활동 종류 등록부(서버 검사 쪽 목록과 같아야 한다: lw_validate_payload) */
+/** 활동 종류 등록부(서버 검사 쪽 목록과 같아야 한다: lwb_validate_payload) */
 export const ACTIVITY_TYPES = ['ox', 'stage_check', 'sentence'];
 
 const TOP_KEYS = ['id', 'title', 'date', 'listed', 'description', 'activities', 'materials'];
@@ -314,7 +314,7 @@ export function settingKeys(pub) {
   return keys;
 }
 
-/** DB의 lw_events.config 에 넣을 공개 설정(연수 열로 따로 두는 칸은 뺀다) */
+/** DB의 lwb_events.config 에 넣을 공개 설정(연수 열로 따로 두는 칸은 뺀다) */
 export function publicConfig(pub) {
   const { id: _id, title: _t, date: _d, listed: _l, ...rest } = pub;
   return rest;

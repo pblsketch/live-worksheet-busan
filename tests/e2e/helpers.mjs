@@ -18,9 +18,9 @@ export function seeder(ev) {
     if (!r || r.ok !== true) throw new Error(`${fn} 실패: ${JSON.stringify(r).slice(0, 300)}`);
     return r;
   };
-  const set = ok('lw_admin_set');
-  const join = ok('lw_join');
-  const submit = ok('lw_submit');
+  const set = ok('lwb_admin_set');
+  const join = ok('lwb_join');
+  const submit = ok('lwb_submit');
   return {
     set: (key, value) => set({ p_event_id: ev.id, p_key: key, p_value: value, p_passcode: ev.passcode }),
     open: (activityId) => set({ p_event_id: ev.id, p_key: `open:${activityId}`, p_value: 'Y', p_passcode: ev.passcode }),
@@ -60,6 +60,6 @@ export async function deleteTestEvent(id) {
 /** 강제로 끊긴 지난 실행이 남긴 E2E 시험 연수(2시간 넘은 것)를 지운다 */
 export async function sweepStaleTestEvents() {
   await runSql(
-    "delete from public.lw_events where id like 't-%-e2e' and created_at < now() - interval '2 hours'"
+    "delete from public.lwb_events where id like 't-%-e2e' and created_at < now() - interval '2 hours'"
   );
 }

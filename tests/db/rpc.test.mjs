@@ -21,11 +21,11 @@ let dir;
 const SECRET_TEXTS = ['시험라벨AI', '시험라벨사람', '시험해설하나', '시험해설셋', '시험패널갑'];
 
 const submit = (activity, payload, pid, ev = EV) =>
-  call('lw_submit', { p_event_id: ev, p_participant_id: pid, p_activity_id: activity, p_payload: payload });
+  call('lwb_submit', { p_event_id: ev, p_participant_id: pid, p_activity_id: activity, p_payload: payload });
 const setKey = (key, value, pass = PASS, ev = EV) =>
-  call('lw_admin_set', { p_event_id: ev, p_key: key, p_value: value, p_passcode: pass });
+  call('lwb_admin_set', { p_event_id: ev, p_key: key, p_value: value, p_passcode: pass });
 const join = (name, mode, ev = EV) =>
-  call('lw_join', { p_event_id: ev, p_name: name, ...(mode === undefined ? {} : { p_mode: mode }) });
+  call('lwb_join', { p_event_id: ev, p_name: name, ...(mode === undefined ? {} : { p_mode: mode }) });
 
 function assertInvalid(res, label) {
   assert.equal(res.ok, false, `${label}: 거부되어야 합니다 (${JSON.stringify(res)})`);
@@ -57,13 +57,13 @@ describe('서버 함수', () => {
 
   describe('연수 불러오기', () => {
     it('없는 연수는 ok:false', async () => {
-      const r = await call('lw_get_event', { p_event_id: 'no-such-event-x' });
+      const r = await call('lwb_get_event', { p_event_id: 'no-such-event-x' });
       assert.equal(r.ok, false);
       assert.equal(r.code, 'no_event');
     });
 
     it('공개 설정과 진행 설정(모두 N)을 돌려주고, 공개 전용 내용은 없다', async () => {
-      const r = await call('lw_get_event', { p_event_id: EV });
+      const r = await call('lwb_get_event', { p_event_id: EV });
       assert.equal(r.ok, true);
       assert.equal(r.event.id, EV);
       assert.equal(r.event.listed, false);
@@ -101,7 +101,7 @@ describe('서버 함수', () => {
       assert.equal(n.created, true);
       assert.notEqual(n.participant.id, alice);
 
-      const rows = await restGet(`lw_participants?select=id&event_id=eq.${EV}&norm_name=eq.${encodeURIComponent('김 하나')}`);
+      const rows = await restGet(`lwb_participants?select=id&event_id=eq.${EV}&norm_name=eq.${encodeURIComponent('김 하나')}`);
       assert.equal(rows.status, 200);
       assert.equal(rows.body.length, 2, 'check 모드에서 참가자가 더 생기면 안 된다');
     });
@@ -153,24 +153,24 @@ describe('서버 함수', () => {
 
     it('길이 검사보다 먼저 비교한다(20자를 넘는 암호 해시로 확인)', async () => {
       const longPass = `Lp${'x'.repeat(20)}9Z`; // 24자
-      await runSql(`update public.lw_event_secrets set admin_hash = extensions.crypt(${lit(longPass)}, extensions.gen_salt('bf', 8)) where event_id = ${lit(OTHER)}`);
+      await runSql(`update public.lwb_event_secrets set admin_hash = extensions.crypt(${lit(longPass)}, extensions.gen_salt('bf', 8)) where event_id = ${lit(OTHER)}`);
       try {
         const r = await join(longPass, 'check', OTHER);
         assert.equal(r.admin, true, `긴 암호가 관리자로 판별되어야 합니다: ${JSON.stringify(r)}`);
         const notPass = `Lp${'y'.repeat(20)}9Z`;
         assert.equal((await join(notPass, 'check', OTHER)).code, 'bad_name', '암호가 아닌 긴 이름은 길이 검사에 걸린다');
       } finally {
-        await runSql(`update public.lw_event_secrets set admin_hash = extensions.crypt(${lit(OTHER_PASS)}, extensions.gen_salt('bf', 8)) where event_id = ${lit(OTHER)}`);
+        await runSql(`update public.lwb_event_secrets set admin_hash = extensions.crypt(${lit(OTHER_PASS)}, extensions.gen_salt('bf', 8)) where event_id = ${lit(OTHER)}`);
       }
-      assert.equal((await call('lw_admin_check', { p_event_id: OTHER, p_passcode: OTHER_PASS })).ok, true);
+      assert.equal((await call('lwb_admin_check', { p_event_id: OTHER, p_passcode: OTHER_PASS })).ok, true);
     });
 
-    it('lw_admin_check: 맞는 암호만 ok', async () => {
-      assert.equal((await call('lw_admin_check', { p_event_id: EV, p_passcode: PASS })).ok, true);
-      assert.equal((await call('lw_admin_check', { p_event_id: EV, p_passcode: PASS.toLowerCase() })).ok, false);
-      assert.equal((await call('lw_admin_check', { p_event_id: EV, p_passcode: '' })).ok, false);
-      assert.equal((await call('lw_admin_check', { p_event_id: EV, p_passcode: OTHER_PASS })).ok, false);
-      assert.equal((await call('lw_admin_check', { p_event_id: 'no-such-event-x', p_passcode: PASS })).ok, false);
+    it('lwb_admin_check: 맞는 암호만 ok', async () => {
+      assert.equal((await call('lwb_admin_check', { p_event_id: EV, p_passcode: PASS })).ok, true);
+      assert.equal((await call('lwb_admin_check', { p_event_id: EV, p_passcode: PASS.toLowerCase() })).ok, false);
+      assert.equal((await call('lwb_admin_check', { p_event_id: EV, p_passcode: '' })).ok, false);
+      assert.equal((await call('lwb_admin_check', { p_event_id: EV, p_passcode: OTHER_PASS })).ok, false);
+      assert.equal((await call('lwb_admin_check', { p_event_id: 'no-such-event-x', p_passcode: PASS })).ok, false);
     });
   });
 
@@ -202,28 +202,28 @@ describe('서버 함수', () => {
 
     it('브라우저 키로 표에 직접 쓸 수 없다', async () => {
       const { url, headers } = restBase();
-      const patch = await fetch(`${url}/rest/v1/lw_settings?event_id=eq.${EV}&key=eq.open:pledge`, {
+      const patch = await fetch(`${url}/rest/v1/lwb_settings?event_id=eq.${EV}&key=eq.open:pledge`, {
         method: 'PATCH', headers: { ...headers, Prefer: 'return=representation' }, body: JSON.stringify({ value: 'Y' })
       });
       assert.ok(patch.status >= 400, `PATCH 가 막혀야 합니다(HTTP ${patch.status})`);
-      const ins = await fetch(`${url}/rest/v1/lw_responses`, {
+      const ins = await fetch(`${url}/rest/v1/lwb_responses`, {
         method: 'POST', headers,
         body: JSON.stringify({ event_id: EV, activity_id: 'ox1', participant_id: alice, payload: okOx })
       });
       assert.ok(ins.status >= 400, `INSERT 가 막혀야 합니다(HTTP ${ins.status})`);
-      const del = await fetch(`${url}/rest/v1/lw_participants?event_id=eq.${EV}`, { method: 'DELETE', headers });
+      const del = await fetch(`${url}/rest/v1/lwb_participants?event_id=eq.${EV}`, { method: 'DELETE', headers });
       assert.ok(del.status >= 400, `DELETE 가 막혀야 합니다(HTTP ${del.status})`);
-      const s = await restGet(`lw_settings?select=value&event_id=eq.${EV}&key=eq.open:pledge`);
+      const s = await restGet(`lwb_settings?select=value&event_id=eq.${EV}&key=eq.open:pledge`);
       assert.equal(s.body[0].value, 'N');
-      const p = await restGet(`lw_participants?select=id&event_id=eq.${EV}`);
+      const p = await restGet(`lwb_participants?select=id&event_id=eq.${EV}`);
       assert.ok(p.body.length >= 1);
     });
 
     it('내부 도우미 함수는 브라우저에서 부를 수 없다', async () => {
       for (const [fn, args] of [
-        ['lw_anonymize_expired', {}],
-        ['lw_admin_ok', { p_event_id: EV, p_passcode: PASS }],
-        ['lw_validate_payload', { p_activity: {}, p_payload: {} }]
+        ['lwb_anonymize_expired', {}],
+        ['lwb_admin_ok', { p_event_id: EV, p_passcode: PASS }],
+        ['lwb_validate_payload', { p_activity: {}, p_payload: {} }]
       ]) {
         const r = await rpc(fn, args);
         assert.ok(r.status >= 400, `${fn} 이 막혀야 합니다(HTTP ${r.status})`);
@@ -257,7 +257,7 @@ describe('서버 함수', () => {
       }
       await setKey('materials_open', 'N');
       await setKey('reveal:ox1', 'N');
-      const s = (await call('lw_get_event', { p_event_id: EV })).settings;
+      const s = (await call('lwb_get_event', { p_event_id: EV })).settings;
       assert.deepEqual(s, {
         'open:ox1': 'Y', 'reveal:ox1': 'N', 'open:practice': 'Y', 'open:pledge': 'Y', materials_open: 'N'
       });
@@ -281,25 +281,25 @@ describe('서버 함수', () => {
 
     it('다시 내면 덮어쓴다(한 건)', async () => {
       assert.deepEqual(await submit('ox1', { answers: ['X', 'X', 'X'], extra: 1 }, alice), { ok: true });
-      const r = await restGet(`lw_responses?select=*&event_id=eq.${EV}&activity_id=eq.ox1&participant_id=eq.${alice}`);
+      const r = await restGet(`lwb_responses?select=*&event_id=eq.${EV}&activity_id=eq.ox1&participant_id=eq.${alice}`);
       assert.equal(r.status, 200);
       assert.equal(r.body.length, 1);
       assert.deepEqual(r.body[0].payload, { answers: ['X', 'X', 'X'] }, '정리된 payload 만 저장');
     });
 
     it('공개 전: 응답 표·연수 표·설정 표·연수 불러오기 어디에도 정답·점수가 없다', async () => {
-      const responses = await restGet(`lw_responses?select=*&event_id=eq.${EV}`);
+      const responses = await restGet(`lwb_responses?select=*&event_id=eq.${EV}`);
       assert.equal(responses.status, 200);
       for (const row of responses.body) {
         assert.deepEqual(Object.keys(row).sort(),
           ['activity_id', 'created_at', 'event_id', 'id', 'participant_id', 'payload', 'updated_at']);
       }
-      const events = await restGet(`lw_events?select=*&id=eq.${EV}`);
-      const settings = await restGet(`lw_settings?select=*&event_id=eq.${EV}`);
-      const participants = await restGet(`lw_participants?select=*&event_id=eq.${EV}`);
-      const ev = await call('lw_get_event', { p_event_id: EV });
-      for (const [label, obj] of [['lw_responses', responses.body], ['lw_events', events.body],
-        ['lw_settings', settings.body], ['lw_participants', participants.body], ['lw_get_event', ev]]) {
+      const events = await restGet(`lwb_events?select=*&id=eq.${EV}`);
+      const settings = await restGet(`lwb_settings?select=*&event_id=eq.${EV}`);
+      const participants = await restGet(`lwb_participants?select=*&event_id=eq.${EV}`);
+      const ev = await call('lwb_get_event', { p_event_id: EV });
+      for (const [label, obj] of [['lwb_responses', responses.body], ['lwb_events', events.body],
+        ['lwb_settings', settings.body], ['lwb_participants', participants.body], ['lwb_get_event', ev]]) {
         for (const t of SECRET_TEXTS) assert.ok(!containsText(obj, t), `${label} 에 비밀 "${t}"`);
         assert.ok(!containsText(obj, '"score"'), `${label} 에 score`);
         assert.ok(!containsText(obj, '"panel"'), `${label} 에 panel`);
@@ -308,25 +308,25 @@ describe('서버 함수', () => {
     });
 
     it('비밀 표는 브라우저 키로 읽을 수 없다', async () => {
-      const r = await restGet('lw_event_secrets?select=*');
+      const r = await restGet('lwb_event_secrets?select=*');
       const blocked = r.status !== 200 || (Array.isArray(r.body) && r.body.length === 0);
-      assert.ok(blocked, `lw_event_secrets 노출: HTTP ${r.status} ${JSON.stringify(r.body).slice(0, 200)}`);
-      const r2 = await restGet(`lw_event_secrets?select=admin_hash,reveal&event_id=eq.${EV}`);
+      assert.ok(blocked, `lwb_event_secrets 노출: HTTP ${r.status} ${JSON.stringify(r.body).slice(0, 200)}`);
+      const r2 = await restGet(`lwb_event_secrets?select=admin_hash,reveal&event_id=eq.${EV}`);
       assert.ok(r2.status !== 200 || r2.body.length === 0);
     });
 
     it('공개 후: 연수 불러오기에 정답·라벨·해설·패널이 내려오고, 끄면 다시 사라진다', async () => {
       await setKey('reveal:ox1', 'Y');
-      const ev = await call('lw_get_event', { p_event_id: EV });
+      const ev = await call('lwb_get_event', { p_event_id: EV });
       assert.deepEqual(ev.reveal.ox1.answers, ['O', 'X', 'O']);
       assert.deepEqual(ev.reveal.ox1.labels, ['시험라벨AI', '시험라벨사람', '시험라벨협업']);
       assert.equal(ev.reveal.ox1.notes.length, 3);
       assert.equal(ev.reveal.ox1.panel[0].name, '시험패널갑');
       assert.deepEqual(Object.keys(ev.reveal), ['ox1']);
       // 다른 연수에는 영향 없음
-      assert.deepEqual((await call('lw_get_event', { p_event_id: OTHER })).reveal, {});
+      assert.deepEqual((await call('lwb_get_event', { p_event_id: OTHER })).reveal, {});
       await setKey('reveal:ox1', 'N');
-      assert.deepEqual((await call('lw_get_event', { p_event_id: EV })).reveal, {});
+      assert.deepEqual((await call('lwb_get_event', { p_event_id: EV })).reveal, {});
     });
   });
 
@@ -391,7 +391,7 @@ describe('서버 함수', () => {
         junk: true
       };
       assert.deepEqual(await submit('practice', payload, alice), { ok: true });
-      const r = await restGet(`lw_responses?select=payload&event_id=eq.${EV}&activity_id=eq.practice&participant_id=eq.${alice}`);
+      const r = await restGet(`lwb_responses?select=payload&event_id=eq.${EV}&activity_id=eq.practice&participant_id=eq.${alice}`);
       assert.equal(r.body.length, 1);
       assert.deepEqual(r.body[0].payload, {
         objective: { id: 'obj-a' },
@@ -417,14 +417,14 @@ describe('서버 함수', () => {
       }
       assert.deepEqual(await submit('pledge', { template: 'student', blank: '가'.repeat(60) }, alice), { ok: true });
       assert.deepEqual(await submit('pledge', { template: 'teacher', blank: '  근거를 먼저 모으게  ' }, alice), { ok: true });
-      const r = await restGet(`lw_responses?select=payload&event_id=eq.${EV}&activity_id=eq.pledge&participant_id=eq.${alice}`);
+      const r = await restGet(`lwb_responses?select=payload&event_id=eq.${EV}&activity_id=eq.pledge&participant_id=eq.${alice}`);
       assert.deepEqual(r.body[0].payload, { template: 'teacher', blank: '근거를 먼저 모으게' });
     });
   });
 
   describe('복원', () => {
     it('기기에 남은 id 로 다시 들어가면 내 응답이 함께 온다', async () => {
-      const r = await call('lw_restore', { p_event_id: EV, p_participant_id: alice });
+      const r = await call('lwb_restore', { p_event_id: EV, p_participant_id: alice });
       assert.equal(r.ok, true);
       assert.equal(r.participant.id, alice);
       assert.deepEqual(Object.keys(r.responses).sort(), ['ox1', 'pledge', 'practice']);
@@ -442,40 +442,40 @@ describe('서버 함수', () => {
 
     it('없는 id·형식 틀린 id·다른 연수 id 는 거부', async () => {
       for (const pid of [randomUUID(), 'ADMIN', 'x', other]) {
-        assert.equal((await call('lw_restore', { p_event_id: EV, p_participant_id: pid })).code, 'no_participant', pid);
+        assert.equal((await call('lwb_restore', { p_event_id: EV, p_participant_id: pid })).code, 'no_participant', pid);
       }
-      assert.equal((await call('lw_restore', { p_event_id: 'no-such-event-x', p_participant_id: alice })).code, 'no_event');
+      assert.equal((await call('lwb_restore', { p_event_id: 'no-such-event-x', p_participant_id: alice })).code, 'no_event');
     });
   });
 
   describe('응답 비우기', () => {
     it('암호가 틀리면 거부하고 아무것도 지우지 않는다', async () => {
-      assert.equal((await call('lw_admin_reset', { p_event_id: EV, p_passcode: 'wrong' })).code, 'auth');
-      assert.ok((await restGet(`lw_participants?select=id&event_id=eq.${EV}`)).body.length > 0);
+      assert.equal((await call('lwb_admin_reset', { p_event_id: EV, p_passcode: 'wrong' })).code, 'auth');
+      assert.ok((await restGet(`lwb_participants?select=id&event_id=eq.${EV}`)).body.length > 0);
     });
 
     it('그 연수의 참가자·응답만 지우고 설정·진행 설정은 남긴다', async () => {
-      const r = await call('lw_admin_reset', { p_event_id: EV, p_passcode: PASS });
+      const r = await call('lwb_admin_reset', { p_event_id: EV, p_passcode: PASS });
       assert.equal(r.ok, true);
       assert.ok(r.participants > 0 && r.responses > 0, JSON.stringify(r));
-      assert.deepEqual((await restGet(`lw_participants?select=id&event_id=eq.${EV}`)).body, []);
-      assert.deepEqual((await restGet(`lw_responses?select=id&event_id=eq.${EV}`)).body, []);
-      const ev = await call('lw_get_event', { p_event_id: EV });
+      assert.deepEqual((await restGet(`lwb_participants?select=id&event_id=eq.${EV}`)).body, []);
+      assert.deepEqual((await restGet(`lwb_responses?select=id&event_id=eq.${EV}`)).body, []);
+      const ev = await call('lwb_get_event', { p_event_id: EV });
       assert.equal(ev.ok, true);
       assert.equal(ev.event.activities.length, 3);
       assert.equal(ev.settings['open:ox1'], 'Y');
       assert.equal(ev.settings['open:practice'], 'Y');
       // 다른 연수는 그대로
-      assert.equal((await restGet(`lw_participants?select=id&event_id=eq.${OTHER}`)).body.length, 1);
-      assert.equal((await restGet(`lw_responses?select=id&event_id=eq.${OTHER}`)).body.length, 1);
+      assert.equal((await restGet(`lwb_participants?select=id&event_id=eq.${OTHER}`)).body.length, 1);
+      assert.equal((await restGet(`lwb_responses?select=id&event_id=eq.${OTHER}`)).body.length, 1);
       // 지운 참가자는 더 이상 제출할 수 없다
       assert.equal((await submit('ox1', { answers: ['O', 'O', 'O'] }, alice)).code, 'no_participant');
     });
   });
 
   describe('깨우기', () => {
-    it('lw_ping 은 가볍게 ok 를 돌려준다', async () => {
-      const r = await call('lw_ping', {});
+    it('lwb_ping 은 가볍게 ok 를 돌려준다', async () => {
+      const r = await call('lwb_ping', {});
       assert.equal(r.ok, true);
     });
   });

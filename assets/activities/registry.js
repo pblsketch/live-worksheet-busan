@@ -1,7 +1,7 @@
 /**
  * 활동 부품 등록부 (클라이언트 쪽 종류 목록)
  *
- * 새 종류를 더할 때는 서버 검사(lw_validate_<종류>, lw_validate_payload)와
+ * 새 종류를 더할 때는 서버 검사(lwb_validate_<종류>, lwb_validate_payload)와
  * tools/lib/event-config.mjs 의 ACTIVITY_TYPES 에도 같은 이름을 더한다(supabase/README.md).
  *
  * 부품 하나가 내보내는 것 (default export):

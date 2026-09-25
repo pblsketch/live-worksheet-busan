@@ -127,7 +127,7 @@ async function boot() {
   const pc = session.get(keys.admin(S.eventId));
   if (pc) {
     try {
-      const c = await api.rpc('lw_admin_check', { p_event_id: S.eventId, p_passcode: pc }, { retry: true });
+      const c = await api.rpc('admin_check', { p_event_id: S.eventId, p_passcode: pc }, { retry: true });
       if (c && c.ok === true) { S.passcode = pc; showAdmin(); return; }
       session.del(keys.admin(S.eventId));
     } catch (e) {
@@ -140,7 +140,7 @@ async function boot() {
   const pid = local.get(keys.participant(S.eventId));
   if (pid) {
     try {
-      const x = await api.rpc('lw_restore', { p_event_id: S.eventId, p_participant_id: pid }, { retry: true });
+      const x = await api.rpc('restore', { p_event_id: S.eventId, p_participant_id: pid }, { retry: true });
       if (x && x.ok) { setMe(x.participant, x.responses); showMenu(); return; }
       local.del(keys.participant(S.eventId));
     } catch (e) {
@@ -257,7 +257,7 @@ async function doJoin(mode, typed) {
 
   let r;
   try {
-    r = await api.rpc('lw_join', { p_event_id: S.eventId, p_name: name, p_mode: mode || 'check' });
+    r = await api.rpc('join', { p_event_id: S.eventId, p_name: name, p_mode: mode || 'check' });
   } catch (e) {
     toast('연결이 불안정합니다. 다시 시도해 주세요.');
     idle();
@@ -397,7 +397,7 @@ function ctxFor(a, root) {
 async function submitFor(a, payload) {
   let r;
   try {
-    r = await api.rpc('lw_submit', {
+    r = await api.rpc('submit', {
       p_event_id: S.eventId, p_participant_id: S.me.id, p_activity_id: a.id, p_payload: payload
     });
   } catch (e) {
@@ -737,7 +737,7 @@ async function setKey(key, value, btn) {
   if (btn) btn.disabled = true;
   let r;
   try {
-    r = await api.rpc('lw_admin_set', { p_event_id: S.eventId, p_key: key, p_value: value, p_passcode: S.passcode });
+    r = await api.rpc('admin_set', { p_event_id: S.eventId, p_key: key, p_value: value, p_passcode: S.passcode });
   } catch (e) {
     toast('바꾸지 못했습니다. 연결을 확인해 주세요.');
     if (btn) btn.disabled = false;
@@ -768,7 +768,7 @@ async function doReset() {
   if (!yes) return;
   let r;
   try {
-    r = await api.rpc('lw_admin_reset', { p_event_id: S.eventId, p_passcode: S.passcode });
+    r = await api.rpc('admin_reset', { p_event_id: S.eventId, p_passcode: S.passcode });
   } catch (e) {
     toast('비우지 못했습니다. 연결을 확인해 주세요.');
     return;

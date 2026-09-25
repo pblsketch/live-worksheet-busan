@@ -1,6 +1,6 @@
 /**
  * 자동 익명화 검사 (spec 4.4, 4.6, 7-B1)
- * 날짜를 앞당긴 시험 연수로 lw_anonymize_expired() 를 직접 불러 확인한다.
+ * 날짜를 앞당긴 시험 연수로 lwb_anonymize_expired() 를 직접 불러 확인한다.
  *   - 날짜 + 30일이 지난 연수: 이름이 '익명', 정규화 이름은 식별 불가 값, 응답은 남는다
  *   - 경계(정확히 30일 전)와 최근 연수: 그대로
  *   - 여러 번 돌아도 결과가 같다
@@ -29,10 +29,10 @@ function pubFor(id, date) {
 }
 
 const participantsOf = (id) => runSql(
-  `select id, name, norm_name, anonymized_at from public.lw_participants where event_id = ${lit(id)} order by created_at`
+  `select id, name, norm_name, anonymized_at from public.lwb_participants where event_id = ${lit(id)} order by created_at`
 );
 const responsesOf = (id) => runSql(
-  `select participant_id, payload from public.lw_responses where event_id = ${lit(id)} order by id`
+  `select participant_id, payload from public.lwb_responses where event_id = ${lit(id)} order by id`
 );
 
 describe('자동 익명화', () => {
@@ -43,10 +43,10 @@ describe('자동 익명화', () => {
       writeEventFiles(dir, id, pubFor(id, dates[id]), { admin_passcode: PASS });
       const r = registerCli(id, dir);
       assert.equal(r.code, 0, `등록 실패 ${id}: ${r.stderr}`);
-      assert.equal((await call('lw_admin_set', { p_event_id: id, p_key: 'open:s1', p_value: 'Y', p_passcode: PASS })).ok, true);
-      const j = await call('lw_join', { p_event_id: id, p_name: '이름 있는 사람', p_mode: 'new' });
+      assert.equal((await call('lwb_admin_set', { p_event_id: id, p_key: 'open:s1', p_value: 'Y', p_passcode: PASS })).ok, true);
+      const j = await call('lwb_join', { p_event_id: id, p_name: '이름 있는 사람', p_mode: 'new' });
       pids[id] = j.participant.id;
-      assert.deepEqual(await call('lw_submit', {
+      assert.deepEqual(await call('lwb_submit', {
         p_event_id: id, p_participant_id: pids[id], p_activity_id: 's1', p_payload: { template: 't', blank: '끝까지 읽게' }
       }), { ok: true });
     }
@@ -59,7 +59,7 @@ describe('자동 익명화', () => {
   let firstStamp;
 
   it('30일이 지난 연수만 이름을 지우고 응답은 남긴다', async () => {
-    const [{ n }] = await runSql('select public.lw_anonymize_expired() as n');
+    const [{ n }] = await runSql('select public.lwb_anonymize_expired() as n');
     assert.ok(n >= 1, `익명화된 행 수 ${n}`);
 
     const [p] = await participantsOf(OLD);
@@ -81,7 +81,7 @@ describe('자동 익명화', () => {
   });
 
   it('여러 번 돌아도 결과가 같다', async () => {
-    await runSql('select public.lw_anonymize_expired()');
+    await runSql('select public.lwb_anonymize_expired()');
     const [p] = await participantsOf(OLD);
     assert.equal(p.name, '익명');
     assert.equal(p.anonymized_at, firstStamp, '두 번째 실행이 다시 고치면 안 됩니다');
@@ -91,22 +91,22 @@ describe('자동 익명화', () => {
   });
 
   it('익명화된 참가자는 이어하기·복원·제출이 되지 않는다', async () => {
-    const c = await call('lw_join', { p_event_id: OLD, p_name: '이름 있는 사람', p_mode: 'check' });
+    const c = await call('lwb_join', { p_event_id: OLD, p_name: '이름 있는 사람', p_mode: 'check' });
     assert.equal(c.created, true, '같은 이름은 새 참가자가 된다');
     assert.notEqual(c.participant.id, pids[OLD]);
-    const r = await call('lw_restore', { p_event_id: OLD, p_participant_id: pids[OLD] });
+    const r = await call('lwb_restore', { p_event_id: OLD, p_participant_id: pids[OLD] });
     assert.equal(r.code, 'no_participant');
-    const s = await call('lw_submit', {
+    const s = await call('lwb_submit', {
       p_event_id: OLD, p_participant_id: pids[OLD], p_activity_id: 's1', p_payload: { template: 't', blank: '다시 내기' }
     });
     assert.equal(s.code, 'no_participant');
   });
 
-  it('예약 작업 lw_anonymize 가 매일 한 번 돌도록 등록되어 있다', async () => {
-    const jobs = await runSql(`select schedule, command, active from cron.job where jobname = 'lw_anonymize'`);
+  it('예약 작업 lwb_anonymize 가 매일 한 번 돌도록 등록되어 있다', async () => {
+    const jobs = await runSql(`select schedule, command, active from cron.job where jobname = 'lwb_anonymize'`);
     assert.equal(jobs.length, 1);
     assert.equal(jobs[0].active, true);
     assert.match(jobs[0].schedule, /^\d+ \d+ \* \* \*$/);
-    assert.match(jobs[0].command, /lw_anonymize_expired\(\)/);
+    assert.match(jobs[0].command, /lwb_anonymize_expired\(\)/);
   });
 });

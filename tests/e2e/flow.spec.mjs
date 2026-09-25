@@ -111,7 +111,7 @@ const kpi = (admin) => admin.locator('#admKpi .v');           // [접속, 모두
 const gnum = (admin, id) => admin.locator(`[data-card="${id}"] .gnum`);
 const menuItem = (page, id) => page.locator(`.menu [data-open="${id}"]`);
 const matItem = (page) => page.locator('.menu [data-open-materials]');
-const pidOf = (page) => page.evaluate((k) => localStorage.getItem(k), `lw:${EV.id}:pid`);
+const pidOf = (page) => page.evaluate((k) => localStorage.getItem(k), `lwb:${EV.id}:pid`);
 
 /** OX: 문항마다 고르고 '고른 답' 화면까지 */
 async function answerOx(page, picks) {
@@ -374,7 +374,7 @@ test('관리자 PC 화면: 접속·완료 수, OX 정답 공개 스위치, 응�
     await markPage(one);
 
     await flip(a, 'reveal:ox1', true);
-    let g = await call('lw_get_event', { p_event_id: EV.id });
+    let g = await call('lwb_get_event', { p_event_id: EV.id });
     expect(g.settings['reveal:ox1']).toBe('Y');
     expect(g.reveal.ox1.answers).toEqual(['O', 'X', 'O']);
     await expect(p1.locator('.badge')).toHaveCount(3, LIVE);
@@ -387,7 +387,7 @@ test('관리자 PC 화면: 접속·완료 수, OX 정답 공개 스위치, 응�
 
     // 다시 끄면 정답이 가려진다
     await flip(a, 'reveal:ox1', false);
-    g = await call('lw_get_event', { p_event_id: EV.id });
+    g = await call('lwb_get_event', { p_event_id: EV.id });
     expect(g.settings['reveal:ox1']).toBe('N');
     expect(g.reveal.ox1).toBeUndefined();
     await expect(p1.locator('.badge')).toHaveCount(0, LIVE);
@@ -406,7 +406,7 @@ test('관리자 PC 화면: 접속·완료 수, OX 정답 공개 스위치, 응�
     await dlg.locator('[data-m="no"]').click();
     await expect(dlg).toHaveCount(0);
     await expect(kpi(a)).toHaveText(['3', '0']);
-    let rows = await restGet(`lw_participants?select=id&event_id=eq.${encodeURIComponent(EV.id)}`);
+    let rows = await restGet(`lwb_participants?select=id&event_id=eq.${encodeURIComponent(EV.id)}`);
     expect(rows.body).toHaveLength(3);
 
     /* ── 확인하면 참가자·응답이 지워지고, 스위치 상태는 남는다 ── */
@@ -420,9 +420,9 @@ test('관리자 PC 화면: 접속·완료 수, OX 정답 공개 스위치, 응�
     for (const [key, on] of [['open:ox1', 'true'], ['open:practice', 'false'], ['open:pledge', 'true'], ['reveal:ox1', 'false']]) {
       await expect(a.locator(`[data-key="${key}"]`)).toHaveAttribute('aria-checked', on);
     }
-    rows = await restGet(`lw_participants?select=id&event_id=eq.${encodeURIComponent(EV.id)}`);
+    rows = await restGet(`lwb_participants?select=id&event_id=eq.${encodeURIComponent(EV.id)}`);
     expect(rows.body).toEqual([]);
-    rows = await restGet(`lw_responses?select=activity_id&event_id=eq.${encodeURIComponent(EV.id)}`);
+    rows = await restGet(`lwb_responses?select=activity_id&event_id=eq.${encodeURIComponent(EV.id)}`);
     expect(rows.body).toEqual([]);
 
     /* ── 참가자 쪽 ── */
@@ -492,7 +492,7 @@ test('새로고침: 답하던 중이면 이어서, OX 를 낸 뒤에는 참가�
     await expect(p.locator('[data-pick]')).toHaveCount(0);
     await expect(p.locator('.bar-item')).toHaveCount(3);
     await expect(p.locator('.bar-item .hint b')).toHaveText(['X', 'O', 'O']); // 내 답
-    expect(await p.evaluate((k) => localStorage.getItem(k), `lw:${EV.id}:draft:ox1`)).toBeNull();
+    expect(await p.evaluate((k) => localStorage.getItem(k), `lwb:${EV.id}:draft:ox1`)).toBeNull();
 
     expect(o.errors()).toEqual([]);
   } finally {

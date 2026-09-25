@@ -2,7 +2,7 @@
  * 현황판(board.html) E2E: PC 폭(1920×1080)
  *
  * 시험 연수를 events/sample.json 으로 등록하고(ox1 · practice(stage_check) · pledge(sentence)),
- * 서버 함수(lw_admin_set · lw_join · lw_submit)로 가짜 응답을 넣은 뒤 현황판을 확인한다.
+ * 서버 함수(lwb_admin_set · lwb_join · lwb_submit)로 가짜 응답을 넣은 뒤 현황판을 확인한다.
  *   - 네 화면(ox · stage_check · sentence · 제출 현황)을 ← → 로 넘기고, &v= 로 바로 연다
  *   - stage_check: ↓ 로 보기를 바꾸면 그 학습목표의 수로 바뀌고, 직접 적은 목표 묶음에 적은 문장이 보인다
  *   - 판단 갈림: 일부러 갈라 놓은 항목에만 붙고, 몰린 항목에는 붙지 않는다(보기마다 따로 계산)

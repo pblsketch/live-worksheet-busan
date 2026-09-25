@@ -6,8 +6,16 @@
  *              실시간 방송(event_id 필터)으로 갱신한다. 실시간이 안 되면 20초마다 다시 불러온다.
  * - 저장소   : 기기에 남기는 참가자 id·관리자 암호·입력 중 내용.
  * - 글 도우미: esc(모든 글 이스케이프), rich(설정 문구의 <b>만 살림), len(코드 포인트 글자 수)
+ *
+ * 부산 판: DB 이름(표·서버 함수)·실시간 채널·기기 저장소 키의 접두어는 NS 한 곳에서 정한다.
+ * 반곡고 판(lw_, 저장소 키 lw:)과 같은 Supabase 프로젝트·같은 출처(pblsketch.github.io)를 쓰므로 섞이지 않게 한다.
  */
 import { CONFIG } from './config.js';
+
+/** 이름 접두어: 표 lwb_events…, 서버 함수 lwb_join…, 채널 lwb-…, 저장소 키 lwb:… */
+export const NS = 'lwb';
+/** 표·서버 함수의 전체 이름 ('join' → 'lwb_join') */
+export const dbName = (name) => `${NS}_${name}`;
 
 /* ───────────── 글 도우미 ───────────── */
 
@@ -83,20 +91,20 @@ async function withRetry(fn) {
 }
 
 export const api = {
-  /** 서버 함수. 실패도 {ok:false, code, msg} 로 돌아온다(연결 오류만 예외) */
+  /** 서버 함수. fn 은 접두어 뺀 이름('join' → lwb_join). 실패도 {ok:false, code, msg} 로 돌아온다(연결 오류만 예외) */
   rpc(fn, args = {}, { retry = false } = {}) {
-    const go = () => request(`/rest/v1/rpc/${fn}`, { method: 'POST', body: args });
+    const go = () => request(`/rest/v1/rpc/${dbName(fn)}`, { method: 'POST', body: args });
     return retry ? withRetry(go) : go();
   },
-  /** 공개 표 읽기. pathAndQuery 예: 'lw_settings?select=key,value&event_id=eq.x' */
-  get(pathAndQuery) {
-    return withRetry(() => request(`/rest/v1/${pathAndQuery}`));
+  /** 공개 표 읽기. table 은 접두어 뺀 이름, query 예: 'select=key,value&event_id=eq.x' */
+  get(table, query) {
+    return withRetry(() => request(`/rest/v1/${dbName(table)}?${query}`));
   },
   getEvent(eventId) {
-    return this.rpc('lw_get_event', { p_event_id: eventId }, { retry: true });
+    return this.rpc('get_event', { p_event_id: eventId }, { retry: true });
   },
   listedEvents() {
-    return this.get('lw_events?select=id,title,date&listed=is.true&order=date.desc');
+    return this.get('events', 'select=id,title,date&listed=is.true&order=date.desc');
   }
 };
 
@@ -112,11 +120,12 @@ function safe(storageName) {
 export const local = safe('localStorage');
 export const session = safe('sessionStorage');
 
+/** 기기 저장소 키. 반곡고 판(lw:)과 같은 출처라 접두어로 나눈다 */
 export const keys = {
-  participant: (eventId) => `lw:${eventId}:pid`,
-  admin: (eventId) => `lw:${eventId}:admin`,
-  draft: (eventId, activityId) => `lw:${eventId}:draft:${activityId}`,
-  peek: (eventId) => `lw:${eventId}:peek`
+  participant: (eventId) => `${NS}:${eventId}:pid`,
+  admin: (eventId) => `${NS}:${eventId}:admin`,
+  draft: (eventId, activityId) => `${NS}:${eventId}:draft:${activityId}`,
+  peek: (eventId) => `${NS}:${eventId}:peek`
 };
 
 /** 활동별 입력 중 내용(자동 저장) */
@@ -135,7 +144,7 @@ export function draftStore(eventId, activityId) {
 
 /* ───────────── 연수 데이터와 실시간 ───────────── */
 
-const TABLE_KIND = { lw_settings: 'settings', lw_participants: 'participants', lw_responses: 'responses' };
+const TABLE_KIND = { [dbName('settings')]: 'settings', [dbName('participants')]: 'participants', [dbName('responses')]: 'responses' };
 const SAFETY_POLL_MS = 60000; // 실시간이 붙어 있어도 가끔 진행 설정을 다시 확인한다
 
 /**
@@ -174,7 +183,7 @@ export class Live {
     }
   }
 
-  /** 처음 불러오기. lw_get_event 결과를 그대로 돌려준다(ok:false 포함) */
+  /** 처음 불러오기. lwb_get_event 결과를 그대로 돌려준다(ok:false 포함) */
   async load() {
     const r = await api.getEvent(this.eventId);
     if (r && r.ok) this.applyEvent(r);
@@ -245,11 +254,11 @@ export class Live {
         realtime: { params: { eventsPerSecond: 10 } }
       });
       const filter = `event_id=eq.${this.eventId}`;
-      let ch = this.client.channel(`lw-${this.eventId}-${Math.random().toString(36).slice(2, 8)}`);
+      let ch = this.client.channel(`${NS}-${this.eventId}-${Math.random().toString(36).slice(2, 8)}`);
       for (const table of Object.keys(TABLE_KIND)) {
         ch = ch.on('postgres_changes', { event: '*', schema: 'public', table, filter }, (msg) => {
           // 참가자 행 UPDATE는 입장·복원 때 last_seen 만 바뀐 것이다(제출은 참가자 행을 고치지 않는다, 0004). 이름이 그대로면 다시 받지 않는다
-          if (table === 'lw_participants' && msg && msg.eventType === 'UPDATE' && msg.new && this.data.participants) {
+          if (TABLE_KIND[table] === 'participants' && msg && msg.eventType === 'UPDATE' && msg.new && this.data.participants) {
             const known = this.data.participants.find((p) => p.id === msg.new.id);
             if (known && known.name === msg.new.name) return;
           }
@@ -355,15 +364,15 @@ export class Live {
       const r = await api.getEvent(this.eventId);
       if (r && r.ok) for (const c of this.applyEvent(r)) changed.add(c);
     } else if (kind === 'participants') {
-      const rows = await api.get(
-        `lw_participants?select=id,name,created_at,last_seen&event_id=eq.${encodeURIComponent(this.eventId)}&order=created_at.asc`);
+      const rows = await api.get('participants',
+        `select=id,name,created_at,last_seen&event_id=eq.${encodeURIComponent(this.eventId)}&order=created_at.asc`);
       if (Array.isArray(rows) && JSON.stringify(rows) !== JSON.stringify(this.data.participants)) {
         this.data.participants = rows;
         changed.add('participants');
       }
     } else if (kind === 'responses') {
-      const rows = await api.get(
-        `lw_responses?select=activity_id,participant_id,payload,created_at,updated_at&event_id=eq.${encodeURIComponent(this.eventId)}&order=updated_at.desc`);
+      const rows = await api.get('responses',
+        `select=activity_id,participant_id,payload,created_at,updated_at&event_id=eq.${encodeURIComponent(this.eventId)}&order=updated_at.desc`);
       if (Array.isArray(rows) && JSON.stringify(rows) !== JSON.stringify(this.data.responses)) {
         this.data.responses = rows;
         changed.add('responses');

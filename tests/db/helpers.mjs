@@ -31,7 +31,7 @@ export function testPasscode() {
 }
 
 export function tmpDir() {
-  return mkdtempSync(join(tmpdir(), 'lw-test-'));
+  return mkdtempSync(join(tmpdir(), 'lwb-test-'));
 }
 
 export function removeDir(dir) {
@@ -89,7 +89,7 @@ export async function call(fn, args) {
 export async function deleteEvents(ids) {
   const list = [...ids].filter((x) => typeof x === 'string' && x.startsWith('t-'));
   if (!list.length) return;
-  await runSql(`delete from public.lw_events where id = any(array[${list.map(lit).join(', ')}]::text[])`);
+  await runSql(`delete from public.lwb_events where id = any(array[${list.map(lit).join(', ')}]::text[])`);
 }
 
 /** 오늘 날짜(UTC, DB의 current_date 기준)에서 n일 더한 YYYY-MM-DD */

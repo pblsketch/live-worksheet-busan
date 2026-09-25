@@ -86,7 +86,7 @@ describe('등록 명령', () => {
 
     it('실패한 등록은 DB에 아무것도 남기지 않는다', async () => {
       const ids = created.filter((x) => x.startsWith('t-'));
-      const rows = await runSql(`select id from public.lw_events where id = any(array[${ids.map(lit).join(', ')}]::text[])`);
+      const rows = await runSql(`select id from public.lwb_events where id = any(array[${ids.map(lit).join(', ')}]::text[])`);
       assert.deepEqual(rows, []);
     });
   });
@@ -104,7 +104,7 @@ describe('등록 명령', () => {
       writeEventFiles(dir, id, samplePublic(id), sampleSecret(null));
       const r = registerCli(id, dir, ['--dry-run']);
       assert.equal(r.code, 0, r.stderr);
-      assert.deepEqual(await runSql(`select id from public.lw_events where id = ${lit(id)}`), []);
+      assert.deepEqual(await runSql(`select id from public.lwb_events where id = ${lit(id)}`), []);
       const sec = JSON.parse(readFileSync(join(dir, `${id}.secret.json`), 'utf8'));
       assert.equal(sec.admin_passcode, undefined, '--dry-run 은 암호를 만들지 않는다');
     });
@@ -124,26 +124,26 @@ describe('등록 명령', () => {
       assert.match(passcode, /^[A-Za-z0-9]{12}$/);
       assert.equal(r.stdout.split(passcode).length - 1, 1, '암호는 한 번만 출력한다');
       assert.deepEqual(sec.reveal, sampleSecret(null).reveal, '비밀 파일의 다른 내용은 그대로');
-      assert.ok(r.stdout.includes(`https://pblsketch.github.io/live-worksheet/?e=${id}`), '참가자 주소');
-      assert.ok(r.stdout.includes(`https://pblsketch.github.io/live-worksheet/board.html?e=${id}`), '현황판 주소');
-      assert.equal((await call('lw_admin_check', { p_event_id: id, p_passcode: passcode })).ok, true);
-      const ev = await call('lw_get_event', { p_event_id: id });
+      assert.ok(r.stdout.includes(`https://pblsketch.github.io/live-worksheet-busan/?e=${id}`), '참가자 주소');
+      assert.ok(r.stdout.includes(`https://pblsketch.github.io/live-worksheet-busan/board.html?e=${id}`), '현황판 주소');
+      assert.equal((await call('lwb_admin_check', { p_event_id: id, p_passcode: passcode })).ok, true);
+      const ev = await call('lwb_get_event', { p_event_id: id });
       assert.deepEqual(Object.values(ev.settings), ['N', 'N', 'N', 'N', 'N']);
       // 해시로 저장된다(평문 아님)
-      const [row] = await runSql(`select admin_hash from public.lw_event_secrets where event_id = ${lit(id)}`);
+      const [row] = await runSql(`select admin_hash from public.lwb_event_secrets where event_id = ${lit(id)}`);
       assert.notEqual(row.admin_hash, passcode);
       assert.match(row.admin_hash, /^\$2[abxy]\$/);
     });
 
     it('다시 등록해도 진행 설정을 덮어쓰지 않고, 새 활동의 키만 N으로 더한다', async () => {
       for (const key of ['open:ox1', 'reveal:ox1', 'materials_open']) {
-        assert.equal((await call('lw_admin_set', { p_event_id: id, p_key: key, p_value: 'Y', p_passcode: passcode })).ok, true);
+        assert.equal((await call('lwb_admin_set', { p_event_id: id, p_key: key, p_value: 'Y', p_passcode: passcode })).ok, true);
       }
       // 같은 파일로 다시 등록
       let r = registerCli(id, dir);
       assert.equal(r.code, 0, r.stderr);
       assert.ok(!r.stdout.includes(passcode), '이미 있는 암호는 다시 출력하지 않는다');
-      let s = (await call('lw_get_event', { p_event_id: id })).settings;
+      let s = (await call('lwb_get_event', { p_event_id: id })).settings;
       assert.equal(s['open:ox1'], 'Y');
       assert.equal(s['reveal:ox1'], 'Y');
       assert.equal(s.materials_open, 'Y');
@@ -156,7 +156,7 @@ describe('등록 명령', () => {
       writeEventFiles(dir, id, pub, null);
       r = registerCli(id, dir);
       assert.equal(r.code, 0, r.stderr);
-      const ev = await call('lw_get_event', { p_event_id: id });
+      const ev = await call('lwb_get_event', { p_event_id: id });
       s = ev.settings;
       assert.equal(ev.event.title, '제목을 바꾼 샘플');
       assert.equal(ev.event.activities.length, 4);
@@ -164,7 +164,7 @@ describe('등록 명령', () => {
       assert.equal(s['open:ox1'], 'Y');
       assert.equal(s['reveal:ox1'], 'Y');
       assert.equal(s.materials_open, 'Y');
-      assert.equal((await call('lw_admin_check', { p_event_id: id, p_passcode: passcode })).ok, true, '암호 유지');
+      assert.equal((await call('lwb_admin_check', { p_event_id: id, p_passcode: passcode })).ok, true, '암호 유지');
     });
 
     it('비밀 파일에서 암호를 바꾸면 새 암호만 통한다', async () => {
@@ -172,8 +172,8 @@ describe('등록 명령', () => {
       writeEventFiles(dir, id, samplePublic(id), sampleSecret(next));
       const r = registerCli(id, dir);
       assert.equal(r.code, 0, r.stderr);
-      assert.equal((await call('lw_admin_check', { p_event_id: id, p_passcode: next })).ok, true);
-      assert.equal((await call('lw_admin_check', { p_event_id: id, p_passcode: passcode })).ok, false);
+      assert.equal((await call('lwb_admin_check', { p_event_id: id, p_passcode: next })).ok, true);
+      assert.equal((await call('lwb_admin_check', { p_event_id: id, p_passcode: passcode })).ok, false);
     });
   });
 });

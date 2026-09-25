@@ -307,7 +307,9 @@ b{font-weight:700}
 .rwcard .tx{display:block;font-family:'Noto Serif KR',serif;font-size:2.6rem;line-height:1.55;color:var(--ink)}
 .rwpair .pp{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:3rem}
 .rwpair .p1,.rwpair .p2{display:block;min-width:0}
-.rwpair .lb{display:block;font-size:2rem;font-weight:800;color:var(--ink-soft);margin-bottom:.4rem}
+.rwpair{padding:1.1rem 2.2rem 1.2rem}
+.rwpair .lb{display:flex;align-items:center;gap:1rem;min-height:3.4rem;font-size:2rem;font-weight:800;color:var(--ink-soft);margin-bottom:.2rem}
+.rwpair .lb .tag{font-size:2rem}
 .rwpair .tx{display:block;font-family:'Noto Serif KR',serif;line-height:1.55}
 .rwpair .p1 .tx{font-size:2.4rem;color:var(--ink-soft)}
 .rwpair .p2 .tx{font-size:2.6rem;color:var(--ink)}

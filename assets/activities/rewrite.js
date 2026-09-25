@@ -416,10 +416,10 @@ function board(ctx) {
     const nm = keep.names ? `<span class="nm">${esc(nameOf(x.pid))}</span>` : '';
     const cls = `${fresh ? ' fresh' : ''}${keep.cursor === x.pid ? ' cursor' : ''}`;
     if (keep.mode === 'pairs') {
+      // 한 쌍을 낮게: 문장 표시는 1차 머리에, 이름은 2차 머리에 둔다
       return `<button type="button" class="rwpair${cls}" data-pid="${esc(x.pid)}">` +
-        `<span class="rh">${tagHTML(x.prompt)}${nm}</span>` +
-        `<span class="pp"><span class="p1"><span class="lb">1차</span><span class="tx">${esc(x.first)}</span></span>` +
-        `<span class="p2"><span class="lb">2차</span><span class="tx">${diffHTML(x.first, x.text)}</span></span></span></button>`;
+        `<span class="pp"><span class="p1"><span class="lb">${tagHTML(x.prompt)}1차</span><span class="tx">${esc(x.first)}</span></span>` +
+        `<span class="p2"><span class="lb">2차${nm}</span><span class="tx">${diffHTML(x.first, x.text)}</span></span></span></button>`;
     }
     return `<button type="button" class="rwcard${cls}" data-pid="${esc(x.pid)}">` +
       `<span class="rh">${tagHTML(x.prompt)}${nm}</span><span class="tx">${esc(x.text)}</span></button>`;

@@ -17,9 +17,10 @@
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
-import { ROOT, SITE_URL, runSql, lit, jsonLit } from './lib/env.mjs';
+import { ROOT, SITE_URL, runSql } from './lib/env.mjs';
+import { registerSql } from './lib/register-sql.mjs';
 import {
-  EVENT_ID_RE, validatePublic, validateSecret, settingKeys, publicConfig, generatePasscode
+  EVENT_ID_RE, validatePublic, validateSecret, settingKeys, generatePasscode
 } from './lib/event-config.mjs';
 
 function usage(msg) {
@@ -100,32 +101,7 @@ if (!passcode) {
   writeFileSync(secPath, JSON.stringify({ admin_passcode: passcode, ...restSec }, null, 2) + '\n', 'utf8');
 }
 
-const sql = `
-with ev as (
-  insert into public.lwb_events (id, title, date, listed, config)
-  values (${lit(id)}, ${lit(pub.title.trim())}, ${lit(pub.date)}::date, ${pub.listed === true}, ${jsonLit(publicConfig(pub))})
-  on conflict (id) do update
-    set title = excluded.title, date = excluded.date, listed = excluded.listed,
-        config = excluded.config, updated_at = now()
-  returning id
-), sec as (
-  insert into public.lwb_event_secrets (event_id, admin_hash, reveal)
-  select ev.id, extensions.crypt(${lit(passcode)}, extensions.gen_salt('bf', 8)), ${jsonLit(sec.reveal ?? {})}
-    from ev
-  on conflict (event_id) do update
-    set admin_hash = excluded.admin_hash, reveal = excluded.reveal, updated_at = now()
-  returning event_id
-), ins as (
-  insert into public.lwb_settings (event_id, key, value)
-  select ev.id, k, 'N' from ev, unnest(array[${keys.map(lit).join(', ')}]::text[]) as k
-  on conflict (event_id, key) do nothing
-  returning key
-)
-select (select count(*) from sec)::int as secrets,
-       coalesce((select json_agg(key order by key) from ins), '[]'::json) as inserted,
-       coalesce((select json_agg(key order by key) from public.lwb_settings
-                  where event_id = ${lit(id)} and key <> all (array[${keys.map(lit).join(', ')}]::text[])), '[]'::json) as stale;
-`;
+const sql = registerSql(id, pub, sec, passcode);
 
 let result;
 try {

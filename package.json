@@ -14,10 +14,13 @@
     "test:unit": "node --test \"tests/unit/*.test.mjs\"",
     "test:db": "node --test --test-concurrency=1 \"tests/db/*.test.mjs\"",
     "test:e2e": "playwright test -c playwright.config.mjs",
-    "load-test": "node tools/load-test.mjs"
+    "load-test": "node tools/load-test.mjs",
+    "test:pglite": "node --test --test-concurrency=1 \"tests/local/*.test.mjs\""
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.8",
     "@playwright/test": "1.61.1",
-    "@supabase/supabase-js": "2.58.0"
+    "@supabase/supabase-js": "2.58.0",
+    "ws": "8.21.3"
   }
 }

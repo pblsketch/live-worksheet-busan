@@ -19,6 +19,14 @@ export const SITE_URL = 'https://pblsketch.github.io/live-worksheet-busan/';
 let cache = null;
 
 /**
+ * 관리 API 주소. 기본은 Supabase. 로컬 흉내 서버(tests/local/server.mjs)로 검사할 때만
+ * 환경 변수 SUPABASE_API_URL 로 바꾼다(.env.local 로는 바꾸지 않는다).
+ */
+export function apiBase() {
+  return (process.env.SUPABASE_API_URL || 'https://api.supabase.com').replace(/\/+$/, '');
+}
+
+/**
  * .env.local 을 읽어 키-값 객체로 돌려준다. 같은 이름의 환경 변수가 있으면 그것이 이긴다
  * (나중에 CI에서 환경 변수로 넣을 수 있게).
  */
@@ -73,7 +81,7 @@ export async function runSql(query, opt = {}) {
   let res;
   for (let attempt = 0; ; attempt++) {
     try {
-      res = await fetch(`https://api.supabase.com/v1/projects/${ref}/database/query`, {
+      res = await fetch(`${apiBase()}/v1/projects/${ref}/database/query`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ query })

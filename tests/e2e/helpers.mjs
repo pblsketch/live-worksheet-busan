@@ -3,9 +3,11 @@
  * 등록은 저장소의 등록 명령(tools/register-event.mjs)을 그대로 쓰고,
  * 지우기는 DB 검사와 같은 도구(관리 API)로 한다. 토큰은 .env.local 에서 도구가 직접 읽는다.
  */
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   testId, testPasscode, tmpDir, removeDir, samplePublic, sampleSecret,
-  writeEventFiles, registerCli, deleteEvents, runSql, call
+  writeEventFiles, registerCli, deleteEvents, runSql, call, ROOT
 } from '../db/helpers.mjs';
 
 /**
@@ -51,6 +53,33 @@ export async function createTestEvent(tag = 'e2e') {
     removeDir(dir);
   }
   return { id, passcode, title: pub.title };
+}
+
+/**
+ * events/busan1019.json 의 활동 다섯(grow · ox · rewrite1 · rewrite2 · pledge)으로 시험 연수를 만든다.
+ * 비밀 파일은 읽지 않고 시험용 정답(모두 O)과 새 암호로 만든다.
+ * @returns {Promise<{ id: string, passcode: string, title: string, pub: object }>}
+ */
+export async function createBusanTestEvent(tag = 'bsn') {
+  const id = testId(tag);
+  const passcode = testPasscode();
+  const dir = tmpDir();
+  const pub = JSON.parse(readFileSync(join(ROOT, 'events', 'busan1019.json'), 'utf8'));
+  pub.id = id;
+  pub.listed = false;
+  const reveal = {};
+  for (const a of pub.activities) if (a.type === 'ox') reveal[a.id] = { answers: a.questions.map(() => 'O') };
+  try {
+    writeEventFiles(dir, id, pub, { admin_passcode: passcode, reveal });
+    const r = registerCli(id, dir);
+    if (r.code !== 0) throw new Error(`시험 연수 등록 실패 (종료 코드 ${r.code}): ${r.stderr.slice(0, 500)}`);
+  } catch (e) {
+    await deleteEvents([id]).catch(() => {});
+    throw e;
+  } finally {
+    removeDir(dir);
+  }
+  return { id, passcode, title: pub.title, pub };
 }
 
 export async function deleteTestEvent(id) {

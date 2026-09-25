@@ -158,6 +158,8 @@ function participant(ctx) {
     text: typeof base.text === 'string' ? base.text : (first0 ? first0.text : '')
   };
   let mode = ctx.mine && (!saved || !ctx.isOpen) ? 'result' : 'form';
+  // 내가 낸 것: 화면을 만든 뒤에 낸 것도 여기에 둔다(ctx.mine 은 화면을 만들 때의 값이다)
+  let mine = ctx.mine || null;
 
   const save = () => draft.save(form);
   const lockedPrompt = () => {
@@ -223,7 +225,7 @@ function participant(ctx) {
       '</div>' +
       checksHTML() +
       '</div>' +
-      `<div class="sticky-b"><button class="btn" data-act="submit">${cur.mine ? '고쳐서 다시 내기' : '제출하기'}</button></div>`;
+      `<div class="sticky-b"><button class="btn" data-act="submit">${mine ? '고쳐서 다시 내기' : '제출하기'}</button></div>`;
 
     const ta = root.querySelector('#rwText');
     ta.addEventListener('input', () => {
@@ -245,6 +247,7 @@ function participant(ctx) {
     btn.textContent = '제출하는 중…';
     const ok = await cur.submit(t.payload);
     if (!ok) { btn.disabled = false; btn.textContent = label; return; }
+    mine = t.payload;
     draft.clear();
     cur.toast('제출했습니다.');
     mode = 'result';
@@ -253,10 +256,10 @@ function participant(ctx) {
   }
 
   function drawResult() {
-    const mine = cur.mine || {};
-    const p = promptOf(a, mine.prompt);
+    const m = mine || {};
+    const p = promptOf(a, m.prompt);
     const f = firstOf();
-    const cmp = f && f.prompt === mine.prompt;
+    const cmp = f && f.prompt === m.prompt;
     root.innerHTML =
       '<div class="card blue center">' +
       '<div class="done-mark">✓</div>' +
@@ -268,9 +271,9 @@ function participant(ctx) {
       (cmp
         ? '<div class="rw-cmp">' +
           `<div class="c1"><span class="lb">1차</span>${esc(f.text)}</div>` +
-          `<div class="c2"><span class="lb">2차</span>${diffHTML(f.text, mine.text)}</div></div>` +
+          `<div class="c2"><span class="lb">2차</span>${diffHTML(f.text, m.text)}</div></div>` +
           '<div class="hint">2차에서 새로 넣은 말은 형광펜으로 표시했습니다.</div>'
-        : `<div class="rw-mine">${esc(mine.text || '')}</div>`) +
+        : `<div class="rw-mine">${esc(m.text || '')}</div>`) +
       '</div>' +
       (cur.isOpen ? '<button class="btn line" data-act="edit">고쳐서 다시 내기</button>' : '') +
       '<div class="sticky-b"><button class="btn" data-act="menu">메뉴로</button></div>';
@@ -278,7 +281,7 @@ function participant(ctx) {
     const edit = root.querySelector('[data-act="edit"]');
     if (edit) {
       edit.onclick = () => {
-        const d = draft.load() || cur.mine || {};
+        const d = draft.load() || mine || {};
         if (promptOf(a, d.prompt)) form.prompt = d.prompt;
         form.text = typeof d.text === 'string' ? d.text : '';
         mode = 'form';
@@ -296,9 +299,10 @@ function participant(ctx) {
     update(next) {
       const wasOpen = cur.isOpen;
       cur = next;
+      if (next.mine) mine = next.mine; // 서버가 정리한 글(다른 기기에서 낸 것 포함)
       if (mode === 'result') { drawResult(); return; }
       // 고쳐 쓰던 중에 활동이 닫히면 제출 화면으로 돌아간다(적던 내용은 기기에 남는다)
-      if (wasOpen && !next.isOpen && next.mine) {
+      if (wasOpen && !next.isOpen && mine) {
         mode = 'result';
         next.toast('진행자가 활동을 닫았습니다. 적던 내용은 이 기기에 남아 있습니다.');
         drawResult();
@@ -632,9 +636,9 @@ function board(ctx) {
   }
 
   function onClick(e) {
-    const m = e.target.closest('[data-mode]');
+    const m = e.target.closest('.rw-tabs [data-mode]'); // .rw 에도 data-mode 가 있으니 단추만
     if (m) { setMode(m.dataset.mode); return; }
-    const f = e.target.closest('[data-filter]');
+    const f = e.target.closest('.rw-tabs [data-filter]');
     if (f) { setFilter(f.dataset.filter); return; }
     const t = e.target.closest('[data-turn]');
     if (t) { turn(Number(t.dataset.turn)); return; }

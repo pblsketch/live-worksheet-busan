@@ -307,6 +307,19 @@ function materialsUnlocked() {
   return S.live.isOpen('materials_open') || (acts().length > 0 && doneCount() === acts().length);
 }
 
+/** 마무리 인사: 설정에 closing 이 있고 마지막 활동을 낸 사람에게만 메뉴 맨 위에 보인다 */
+function closingHTML() {
+  const c = ev() && ev().closing;
+  const list = acts();
+  const last = list[list.length - 1];
+  if (!c || typeof c !== 'object' || !last || !S.mine[last.id]) return '';
+  const paras = String(c.text || '').split(/\n+/).filter((t) => t.trim()).map((t) => `<p>${rich(t)}</p>`).join('');
+  return '<div class="card blue closing">' +
+    `<div class="serif big-t">${rich(c.title || '')}</div>${paras}` +
+    (c.sign ? `<div class="sign">${rich(c.sign)}</div>` : '') +
+    '</div>';
+}
+
 function showMenu() {
   if (!S.me) { showJoin(); return; }
   setScreen('menu');
@@ -352,6 +365,7 @@ function drawMenu() {
 
   body.innerHTML =
     `<div class="progress-bar">${list.map((a) => `<i class="${S.mine[a.id] ? 'on' : ''}"></i>`).join('')}</div>` +
+    closingHTML() +
     `<div class="menu">${items}${matItem}</div>` +
     '<div class="menu-foot"><button class="btn ghost sm" data-act="logout">다른 이름으로 들어가기</button></div>';
 

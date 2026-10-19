@@ -16,7 +16,7 @@ export const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 /** 활동 종류 등록부(서버 검사 쪽 목록과 같아야 한다: lwb_validate_payload) */
 export const ACTIVITY_TYPES = ['ox', 'stage_check', 'sentence', 'rewrite'];
 
-const TOP_KEYS = ['id', 'title', 'date', 'listed', 'description', 'activities', 'materials'];
+const TOP_KEYS = ['id', 'title', 'date', 'listed', 'description', 'activities', 'materials', 'closing'];
 const COMMON_ACTIVITY_KEYS = ['id', 'type', 'title', 'description'];
 const TYPE_KEYS = {
   ox: ['questions', 'choices'],
@@ -348,6 +348,21 @@ export function validatePublic(id, pub) {
         errors.push(`${p}.url: http(s) 주소나 저장소 안의 상대 경로만 쓸 수 있습니다.`);
       }
     });
+  }
+
+  if (pub.closing !== undefined) {
+    const c = pub.closing;
+    if (!isObj(c)) errors.push('closing: 객체여야 합니다.');
+    else {
+      for (const k of Object.keys(c)) {
+        if (!['title', 'text', 'sign'].includes(k)) warnings.push(`closing: 알 수 없는 칸 "${k}" (그대로 저장됩니다)`);
+      }
+      if (!nonEmpty(c.title)) errors.push('closing.title: 인사 제목이 필요합니다.');
+      else if (len(c.title.trim()) > 60) errors.push('closing.title: 60자 이내여야 합니다.');
+      if (!nonEmpty(c.text)) errors.push('closing.text: 인사말이 필요합니다.');
+      else if (len(c.text) > 500) errors.push('closing.text: 500자 이내여야 합니다.');
+      if (c.sign !== undefined && !isStr(c.sign)) errors.push('closing.sign: 문자열이어야 합니다.');
+    }
   }
 
   walkStrings(pub, '', (s, path) => {

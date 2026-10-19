@@ -18,6 +18,19 @@ describe('busan1019 설정', () => {
     assert.deepEqual(r.warnings, []);
   });
 
+  it('마무리 인사(closing): 제목·인사말·서명이 있고, 형식이 틀리면 막힌다', () => {
+    assert.equal(PUB.closing.title, '늦은 시간까지 함께해 주셔서 고맙습니다');
+    assert.match(PUB.closing.text, /다음 학기에 바꿀 한 가지/);
+    assert.equal(PUB.closing.sign, '박준일 · 온양여자고등학교 국어 교사');
+    const bad = (closing) => validatePublic('busan1019', { ...PUB, closing }).errors;
+    assert.deepEqual(bad({ title: '고맙습니다', text: '인사' }), []);
+    assert.ok(bad('고맙습니다').some((e) => e.startsWith('closing:')));
+    assert.ok(bad({ title: '', text: '인사' }).some((e) => e.startsWith('closing.title')));
+    assert.ok(bad({ title: '고맙습니다' }).some((e) => e.startsWith('closing.text')));
+    assert.ok(bad({ title: '가'.repeat(61), text: '인사' }).some((e) => e.startsWith('closing.title')));
+    assert.ok(bad({ title: '고맙습니다', text: '<i>인사</i>' }).some((e) => e.includes('허용하지 않는 HTML')));
+  });
+
   it('연수 칸과 활동 순서: grow → ox → rewrite1 → pledge (고쳐 쓰기는 한 번)', () => {
     assert.equal(PUB.title, '배움이 깊어지는 학생평가');
     assert.equal(PUB.date, '2026-10-19');

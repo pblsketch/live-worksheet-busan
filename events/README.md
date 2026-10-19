@@ -39,8 +39,9 @@ node tools/register-event.mjs <id> --dry-run   # 검사만 (DB에 접속하지 �
 | `description` | 선택 | 문자열 |
 | `activities` | 필수 | 활동 배열(1개 이상). **적힌 순서가 화면 순서다** |
 | `materials` | 선택 | 자료 배열 |
+| `closing` | 선택 | 마무리 인사 `{ "title", "text", "sign"? }`. 마지막 활동을 낸 참가자의 메뉴 맨 위에 카드로 보인다. `title` 60자, `text` 500자 이내(줄 바꿈 `\n`은 문단) |
 
-`id`·`title`·`date`·`listed`는 DB의 `lwb_events` 열로, 나머지(`description`, `activities`, `materials`)는 `lwb_events.config`에 그대로 들어간다. 모르는 칸은 경고만 하고 그대로 저장한다.
+`id`·`title`·`date`·`listed`는 DB의 `lwb_events` 열로, 나머지(`description`, `activities`, `materials`, `closing`)는 `lwb_events.config`에 그대로 들어간다. 모르는 칸은 경고만 하고 그대로 저장한다.
 
 ### 활동 공통 칸
 
